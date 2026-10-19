@@ -204,11 +204,32 @@ just retarget-spot-traj    # re-solve IK without the viewer
 
 ---
 
+## cuRobo planner for real robots
+
+`planner/curobo_server.py` serves the `CuroboPlanned*` planning over HTTP so a
+real-robot stack can run the same heuristics: `plan_pose` for a GoTo, the seeded
+`MotionRetargeter` arc for a Rotate, refused when the retargeted joints miss the
+arc. Its own environment holds only torch, warp and cuRobo (about 5.5 GB, no
+Isaac Lab):
+
+```bash
+just planner-sync                   # once: planner/.venv
+just planner                        # http://127.0.0.1:8765, FR3 cuMotion files
+curl -s localhost:8765/info
+```
+
+It is used by the FR3 HiveBoard executor in
+[oopsie_dataset](https://github.com/mpangarola/oopsie_dataset), which carries this
+repository as a submodule.
+
+---
+
 ## Repository structure
 
 ```
 isaaclab-hiveboard/
 ├── configs/                 # Saved command setups, one per task
+├── planner/                 # HTTP cuRobo planner for real robots, own uv env
 ├── dependencies/HiveBoard/  # Git submodule: HiveBoard URDF/USD models
 ├── scripts/                 # play.py, command_edit.py, record_all_envs.py, ...
 └── source/isaaclab_hiveboard/isaaclab_hiveboard/

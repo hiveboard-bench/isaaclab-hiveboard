@@ -43,6 +43,15 @@ edit-spot-traj *args:
 edit-commands *args:
     uv run python scripts/command_edit.py {{args}}
 
+# Build planner/.venv: torch, warp and cuRobo only, no Isaac Lab
+planner-sync:
+    git submodule update --init dependencies/curobo
+    uv sync --project planner --python 3.12
+
+# Serve cuRobo plans over HTTP for a real robot (planner/curobo_server.py --help)
+planner *args:
+    uv run --project planner python planner/curobo_server.py {{args}}
+
 # CPU checks for command setup files, frame transforms and offset IK
 check-command-setup:
     uv run python scripts/check_command_setup.py
