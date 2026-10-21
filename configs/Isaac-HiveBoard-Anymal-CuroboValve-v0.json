@@ -51,8 +51,8 @@
           "dynaarm_wrist_flexion",
           "dynaarm_wrist_rotation"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/anymal/cumotion/dynaarm.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/anymal/cumotion/dynaarm.urdf",
+        "robot_curobo_yaml": "anymal/cumotion/dynaarm.yaml",
+        "robot_urdf": "anymal/cumotion/dynaarm.urdf",
         "num_ik_seeds": 16,
         "num_trajopt_seeds": 2,
         "max_plan_attempts": 3,
@@ -95,8 +95,8 @@
           "dynaarm_wrist_flexion",
           "dynaarm_wrist_rotation"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/anymal/cumotion/dynaarm.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/anymal/cumotion/dynaarm.urdf",
+        "robot_curobo_yaml": "anymal/cumotion/dynaarm.yaml",
+        "robot_urdf": "anymal/cumotion/dynaarm.urdf",
         "num_ik_seeds": 16,
         "num_trajopt_seeds": 2,
         "max_plan_attempts": 3,
@@ -148,8 +148,8 @@
           "dynaarm_wrist_flexion",
           "dynaarm_wrist_rotation"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/anymal/cumotion/dynaarm.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/anymal/cumotion/dynaarm.urdf",
+        "robot_curobo_yaml": "anymal/cumotion/dynaarm.yaml",
+        "robot_urdf": "anymal/cumotion/dynaarm.urdf",
         "num_ik_seeds": 16,
         "interpolation_buffer_size": 128,
         "max_joint_step": 0.15
@@ -196,8 +196,8 @@
           "dynaarm_wrist_flexion",
           "dynaarm_wrist_rotation"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/anymal/cumotion/dynaarm.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/anymal/cumotion/dynaarm.urdf",
+        "robot_curobo_yaml": "anymal/cumotion/dynaarm.yaml",
+        "robot_urdf": "anymal/cumotion/dynaarm.urdf",
         "num_ik_seeds": 16,
         "num_trajopt_seeds": 2,
         "max_plan_attempts": 3,

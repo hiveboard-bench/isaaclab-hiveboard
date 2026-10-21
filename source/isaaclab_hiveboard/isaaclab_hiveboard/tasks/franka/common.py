@@ -14,8 +14,6 @@ matching ANYmal task instead of another copy of it.
 
 from __future__ import annotations
 
-import math
-
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.envs.mdp.actions.actions_cfg import BinaryJointPositionActionCfg, JointPositionActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
@@ -27,7 +25,8 @@ from isaaclab_hiveboard.assets import ASSET_DIR, FRANKA_EE, FRANKA_FR3_HIGH_PD_C
 from isaaclab_hiveboard.mdp.actions import RateLimitedBinaryJointPositionActionCfg
 from isaaclab_hiveboard.mdp.commands.sequential_pose_command import GripperCommand
 from isaaclab_hiveboard.mdp.events import set_contact_stiffness, set_mimic_constraint_stiffness
-from isaaclab_hiveboard.tasks.viewer import use_play_viewer
+from isaaclab_hiveboard.tasks.franka.board import FRANKA_OBJECT_POSE_RANGE as FRANKA_OBJECT_POSE_RANGE
+from isaaclab_hiveboard.tasks.franka.board import use_franka_board
 
 FRANKA_ARM_JOINT_NAMES = [f"fr3_joint{i}" for i in range(1, 8)]
 FRANKA_FINGER_JOINT_NAMES = ["fr3_finger_joint1", "fr3_finger_joint2"]
@@ -80,25 +79,6 @@ FRANKA_NEWTON_CFG = FRANKA_FR3_HIGH_PD_CFG.replace(
     actuators=FRANKA_NEWTON_ACTUATORS,
 )
 """Table-mounted FR3 at the env origin, facing +X."""
-
-# The shared scenes place objects for Spot/ANYmal, whose arm shoulders sit
-# about 0.65 m up and 1 m back. Shifting the object by this amount puts the
-# horizontal-approach targets ~0.6 m forward and ~0.4 m up. Closer than that,
-# the FR3 folds against its joint4/joint6 limits to keep the TCP level and
-# cuRobo cannot plan the short grasp legs.
-FRANKA_SCENE_SHIFT = (-0.30, 0.0, -0.25)
-
-# Object-root randomization the FR3 can still reach. The legged robots use
-# +-0.2/0.3 m and +-30 deg, which puts targets outside the FR3's 0.855 m reach.
-FRANKA_OBJECT_POSE_RANGE = {
-    "x": (-0.05, 0.05),
-    "y": (-0.10, 0.10),
-    "z": (-0.08, 0.08),
-    "roll": (-math.pi / 18, math.pi / 18),
-    "pitch": (-math.pi / 18, math.pi / 18),
-    "yaw": (-math.pi / 12, math.pi / 12),
-}
-
 
 # Physics settings follow the website's MuJoCo FR3 model
 # (hiveboard-bench.github.io/public/sim/models/fr3.xml: 2 ms step, pad solref
@@ -224,8 +204,8 @@ def use_franka(
     env_cfg,
     object_name: str,
     root_reset_event: str | None = None,
-    scene_shift: tuple[float, float, float] = FRANKA_SCENE_SHIFT,
     finger_close: float | None = None,
+    companion_names: tuple[str, ...] = (),
 ) -> None:
     """Swap the robot-specific parts of a shared HiveBoard task for the FR3.
 
@@ -233,12 +213,11 @@ def use_franka(
         env_cfg: A Spot or ANYmal task config, after its own ``__post_init__``.
         object_name: Scene entity of the HiveBoard object, shifted into reach.
         root_reset_event: Event term that randomizes the object root. Its pose
-            range is narrowed to :data:`FRANKA_OBJECT_POSE_RANGE` unless it is
-            already all zeros (the ``_PLAY`` variants).
-        scene_shift: Object offset from the shared scene's spawn. Objects that
-            protrude further toward the robot need a smaller -X shift.
+            range uses :data:`FRANKA_OBJECT_POSE_RANGE`; ``_PLAY`` variants
+            retain a deterministic nominal pose.
         finger_close: Finger close command [m] (see :func:`use_franka_physics`).
             ``None`` closes fully.
+        companion_names: Separately simulated parts mounted on the same board.
     """
     scene = env_cfg.scene
     scene.robot = FRANKA_NEWTON_CFG
@@ -249,10 +228,7 @@ def use_franka(
             sensor.prim_path = "{ENV_REGEX_NS}/Robot/" + body
 
     obj = getattr(scene, object_name)
-    obj.init_state.pos = tuple(p + d for p, d in zip(obj.init_state.pos, scene_shift))
-    if env_cfg.viewer.origin_type == "env":
-        # The Play camera is fixed in the environment frame; move it with the object.
-        use_play_viewer(env_cfg, scene_shift)
+    use_franka_board(env_cfg, object_name, root_reset_event, companion_names)
 
     pose_command = env_cfg.commands.pose_command
     pose_command.body_name = FRANKA_EE.body_name
@@ -274,11 +250,6 @@ def use_franka(
     material = getattr(env_cfg.events, "robot_physics_material", None)
     if material is not None:
         material.params["asset_cfg"] = SceneEntityCfg("robot", body_names=FRANKA_FINGER_BODY_NAMES)
-    if root_reset_event is not None:
-        reset = getattr(env_cfg.events, root_reset_event)
-        if any(bound != 0.0 for bounds in reset.params["pose_range"].values() for bound in bounds):
-            reset.params["pose_range"] = dict(FRANKA_OBJECT_POSE_RANGE)
-
     for group in vars(env_cfg.observations).values():
         if not isinstance(group, ObservationGroupCfg):
             continue

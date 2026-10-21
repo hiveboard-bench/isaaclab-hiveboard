@@ -53,8 +53,8 @@
           "fr3_joint6",
           "fr3_joint7"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/franka/cumotion/fr3.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/franka/cumotion/fr3.urdf",
+        "robot_curobo_yaml": "franka/cumotion/fr3.yaml",
+        "robot_urdf": "franka/cumotion/fr3.urdf",
         "num_ik_seeds": 4,
         "num_trajopt_seeds": 1,
         "max_plan_attempts": 1,
@@ -99,8 +99,8 @@
           "fr3_joint6",
           "fr3_joint7"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/franka/cumotion/fr3.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/franka/cumotion/fr3.urdf",
+        "robot_curobo_yaml": "franka/cumotion/fr3.yaml",
+        "robot_urdf": "franka/cumotion/fr3.urdf",
         "num_ik_seeds": 4,
         "num_trajopt_seeds": 1,
         "max_plan_attempts": 1,
@@ -153,8 +153,8 @@
           "fr3_joint6",
           "fr3_joint7"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/franka/cumotion/fr3.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/franka/cumotion/fr3.urdf",
+        "robot_curobo_yaml": "franka/cumotion/fr3.yaml",
+        "robot_urdf": "franka/cumotion/fr3.urdf",
         "num_ik_seeds": 4,
         "interpolation_buffer_size": 128,
         "max_joint_step": 0.15,

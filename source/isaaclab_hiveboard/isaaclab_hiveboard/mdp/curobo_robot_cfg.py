@@ -11,6 +11,17 @@ from typing import Any
 
 import yaml
 
+from isaaclab_hiveboard.assets import ASSET_DIR
+
+
+def _resolve_asset_path(path: str | Path) -> Path:
+    path = Path(path).expanduser()
+
+    if not path.is_absolute():
+        path = Path(ASSET_DIR) / path
+
+    return path.resolve()
+
 
 def load_curobo_robot_cfg(
     yaml_path: str | Path,
@@ -25,7 +36,7 @@ def load_curobo_robot_cfg(
     ``InverseKinematicsCfg.create`` (a dict passes ``resolve_config`` through
     unchanged) and must keep the top-level ``robot_cfg`` key.
     """
-    payload = yaml.safe_load(Path(yaml_path).read_text())
+    payload = yaml.safe_load(_resolve_asset_path(yaml_path).read_text())
     if not isinstance(payload, dict) or "robot_cfg" not in payload:
         raise ValueError(f"Expected a cuRobo robot yaml with a 'robot_cfg' key: {yaml_path}")
     kinematics = payload["robot_cfg"].setdefault("kinematics", {})
@@ -49,7 +60,7 @@ def load_curobo_robot_cfg(
     if isinstance(cspace, dict) and "default_joint_position" not in cspace and "retract_config" in cspace:
         cspace["default_joint_position"] = cspace.pop("retract_config")
     if urdf_path is not None:
-        urdf_path = Path(urdf_path)
+        urdf_path = _resolve_asset_path(urdf_path)
         if not urdf_path.is_file():
             raise FileNotFoundError(f"cuRobo URDF not found: {urdf_path}")
         kinematics["urdf_path"] = str(urdf_path)

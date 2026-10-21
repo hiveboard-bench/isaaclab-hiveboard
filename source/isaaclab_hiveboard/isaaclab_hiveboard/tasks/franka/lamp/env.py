@@ -2,8 +2,9 @@
 
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_hiveboard.tasks.franka.board import use_franka_board, use_franka_board_viewer
 from isaaclab_hiveboard.tasks.franka.common import use_franka_physics
-from isaaclab_hiveboard.tasks.spot.lamp.env import SpotLampEnvCfg, use_lamp_play_viewer
+from isaaclab_hiveboard.tasks.spot.lamp.env import SpotLampEnvCfg
 
 from .configs.actions import FrankaLampActionCfg
 from .configs.commands import FramePoseCommandsCfg
@@ -25,6 +26,7 @@ class FrankaLampEnvCfg(SpotLampEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         use_franka_physics(self)
+        use_franka_board(self, "lamp")
 
 
 @configclass
@@ -33,4 +35,7 @@ class FrankaLampEnvCfg_PLAY(FrankaLampEnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
-        use_lamp_play_viewer(self)
+        use_franka_board_viewer(self)
+        self.events.reset_board_root.params["pose_range"] = {
+            key: (0.0, 0.0) for key in self.events.reset_board_root.params["pose_range"]
+        }

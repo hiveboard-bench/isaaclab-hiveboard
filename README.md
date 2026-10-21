@@ -141,6 +141,19 @@ Videos and a `summary.json` go to a dated folder under `videos/environments/`.
 
 ---
 
+### Franka board placement
+
+Franka tasks place the back of the HiveBoard panel on the floor, with its
+face pointing upward, 0.60 m in front of the robot base. Mechanism root
+heights account for the panel mounting offset; the root itself need not be
+at floor level. Spot and ANYmal retain their existing placements.
+
+Franka expert environments randomize board translation by X ±0.05 m,
+Y ±0.08 m and Z from 0 to +0.08 m. Orientation stays upward. `-Play-v0`
+variants use the nominal pose without randomization. Recollect expert banks
+for this placement before training policies that previously used the
+vertical panel.
+
 ## Editing commands
 
 Each task drives the robot through a sequence of commands (go to a pose,
@@ -180,6 +193,11 @@ cuRobo plans are simulated. Click **Save setup** to write the file.
   sequence. A task's own file always wins.
 - Saving updates the loaded file, or creates `configs/<task>.json`.
 - `--out FILE` saves elsewhere; `--port` changes the browser port.
+
+Saved cuRobo YAML and URDF paths are relative to the package assets directory,
+so setups work from any checkout location or working directory. Saving a
+setup also converts package asset paths to this portable form; explicit
+paths to external robot descriptions remain absolute.
 
 Check a setup with real physics:
 
