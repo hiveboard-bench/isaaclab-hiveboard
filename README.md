@@ -33,6 +33,6 @@ just generate-honeycomb-collisions                    # panel colliders
 
 ## Layout
 
-Robots, assets and tasks are data in `isaaclab_hiveboard/tasks.py`, which also builds the
-scene and the expert. The expert engine (sequential pose commands, skills, gripper action,
-physics events) lives in `isaaclab_hiveboard/mdp/`.
+Robots, assets and single-goal tasks are data in `isaaclab_hiveboard/tasks_simple.py`, which also
+builds the scene and the expert. The expert engine (sequential pose commands, skills, gripper
+action, physics events) lives in `isaaclab_hiveboard/mdp/`.

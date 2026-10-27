@@ -68,11 +68,14 @@ class RobotCfg:
     articulation: ArticulationCfg = MISSING
     ee: assets.EndEffectorCfg = MISSING
     pads: tuple[str, str] = MISSING
+    pad_length: float = 0.0655
     contact_shapes: str = MISSING
-    board_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    board_pos: tuple[float, float, float] | None = None
     board_rot: tuple[float, float, float, float] = IDENTITY
     planner: dict = MISSING
     wrist_flip: tuple[str, ...] | None = None
+    upright_axes: dict = {}
+    screw_turn_deg: float = 120.0
     min_duration_s: dict = {"grip": 0.0, "hold": 0.0, "release": 0.0}
     grip_effort: dict = {}
     pose_limits: dict = {k: FREE for k in ("x", "y", "z", "roll", "pitch", "yaw")}
@@ -89,6 +92,7 @@ class RobotCfg:
     gripper_open: dict = MISSING
     gripper_close: dict = MISSING
     gripper_close_speed: float | None = None
+    gripper_width_scale: float | None = None
 
 
 @configclass
@@ -96,24 +100,32 @@ class AssetCfg:
     name: str = MISSING
     prim: str = MISSING
     usd: str = MISSING
+    gravity: bool = False
+    manipuland_usd: str | None = None
+    manipuland_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    manipuland_rot: tuple[float, float, float, float] = IDENTITY
     pos: tuple[float, float, float] = (1.0, 0.0, 0.65)
     rot: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 0.0)
     viewer: dict = {}
     panel_pos: tuple[float, float, float] = MISSING
     panel_rot: tuple[float, float, float, float] = IDENTITY
-    joint: str = "RevoluteJoint"
+    joint: str | None = "RevoluteJoint"
     joints: dict = MISSING
     closed_end_stop: bool = False
     end_stop_damping: float | None = None
     pitch: float | None = None
     upper_limit: float = 0.0
     axial_reference: float = 0.0
+    backlash: float = 0.0
     frame_path: str = MISSING
     frame_rot: tuple[float, float, float, float] = MISSING
     targets: dict = MISSING
     grasp_frame: str = MISSING
+    orientation_frame: str | None = None
     mode: str = "grasp"
     grip_effort_scale: float = 1.0
+    grip_width: float | None = None
+    turn_step_deg: float = 90.0
     method: str | None = None
     dynamics: dict = {}
     stuck_prob: float = 0.0
@@ -130,6 +142,7 @@ class TaskCfg:
     start: float = MISSING
     target: float = MISSING
     tolerance: float = MISSING
+    persistent_goal: bool = True
     pose: dict = {}
     joint_offset: tuple[float, float] = (0.0, 0.0)
     episode_length_s: float = MISSING
@@ -154,6 +167,7 @@ ROBOTS = {
             "robot_urdf": "anymal/cumotion/dynaarm.urdf",
         },
         wrist_flip=("dynaarm_forearm_rotation", "dynaarm_wrist_flexion", "dynaarm_wrist_rotation"),
+        upright_axes={"lever_turn": (0.0, 1.0, 0.0)},
         grip_effort={"gripper": 20.0},
         actuator_groups=ANYMAL_GROUPS,
         postures={
@@ -197,14 +211,20 @@ ROBOTS = {
         articulation=assets.FRANKA_NEWTON_CFG,
         ee=assets.FRANKA_EE,
         pads=("fr3_leftfinger", "fr3_rightfinger"),
+        pad_length=0.0185,
         contact_shapes="/Robot/fr3_(left|right)finger/",
-        board_pos=(1.404, 0.06, 1.04),
-        board_rot=(0.7071067811865476, 0.0, -0.7071067811865476, 0.0),
+        board_pos=(0.6, 0.0, 0.0),
+        board_rot=(0.0, -0.7071067811865476, 0.0, 0.7071067811865476),
         planner={
             "robot_curobo_yaml": "franka/cumotion/fr3.yaml",
             "robot_urdf": "franka/cumotion/fr3.urdf",
         },
         min_duration_s={"grip": 0.7, "hold": 0.7, "release": 0.8},
+        screw_turn_deg=90.0,
+        upright_axes={
+            "lever_turn": (0.0, 0.0, -1.0),
+            "wheel_turn": (0.0, 0.0, -1.0),
+        },
         pose_limits={
             "x": (-0.05, 0.05),
             "y": (-0.08, 0.08),
@@ -225,6 +245,7 @@ ROBOTS = {
         gripper_open={"fr3_finger_joint.*": 0.04},
         gripper_close={"fr3_finger_joint.*": 0.01},
         gripper_close_speed=0.05,
+        gripper_width_scale=0.5,
     ),
     "spot": RobotCfg(
         name="spot",
@@ -294,7 +315,7 @@ ASSETS = {
         rot=(0.0, 0.0, -0.70710678, 0.70710678),
         viewer={"body_name": "eixo_trans"},
         panel_pos=(0.0, 0.075, 0.0),
-        panel_rot=(0.0, 0.0, 0.70710678, 0.70710678),
+        panel_rot=(0.0, 0.0, -0.70710678, 0.70710678),
         joints={
             "RevoluteJoint": {"friction": 0.0002, "dynamic_friction": 0.0, "viscous_friction": 0.0},
             "PrismaticJoint": {
@@ -308,8 +329,14 @@ ASSETS = {
         targets={
             "approaching": {"pos": (0.0, 0.0, 0.2)},
             "rotate_frame": {"pos": (0.0, 0.0, 0.05)},
+            "grasp": {
+                "pos": (0.0, 0.0, 0.05),
+                "contact_pos": (0.0, 0.0, 0.02662),
+                "contact_length": 0.005,
+            },
         },
-        grasp_frame="rotate_frame",
+        grasp_frame="grasp",
+        grip_width=0.0,
         method="wheel_turn",
         dynamics={"friction": (0.02, 1.0), "damping": (0.0, 0.1), "armature": (0.0005, 0.005)},
         solver={"ls_iterations": 50},
@@ -329,11 +356,20 @@ ASSETS = {
         frame_rot=FACE,
         targets={
             "approaching": {"pos": (0.1, 0.02, 0.02)},
-            "lever_pivot_below": {"pos": (0.03, 0.0, -0.05)},
-            "lever_pivot_above": {"pos": (0.03, 0.0, 0.09)},
+            "lever_pivot_below": {
+                "pos": (0.03, 0.0, -0.05),
+                "contact_pos": (0.015607, 0.0, -0.05),
+                "contact_length": 0.015465,
+            },
+            "lever_pivot_above": {
+                "pos": (0.03, 0.0, 0.09),
+                "contact_pos": (0.015607, 0.0, 0.09),
+                "contact_length": 0.015465,
+            },
         },
         grasp_frame="lever_pivot_below",
         mode="push",
+        grip_width=0.0,
         method="push",
         dynamics={
             "friction": (0.01, 0.1),
@@ -376,6 +412,8 @@ ASSETS = {
             "grasp": {
                 "pos": (0.056, 0.0, 0.0),
                 "rot": (0.0, -0.04013179253255973, 0.999194395114446, 0.0),
+                "contact_pos": (0.034649, 0.0, 0.0),
+                "contact_length": 0.024,
             },
             "clear": {
                 "pos": (0.086, 0.0, 0.0),
@@ -386,6 +424,7 @@ ASSETS = {
         grasp_frame="grasp",
         mode="contact_grasp",
         grip_effort_scale=0.5,
+        grip_width=0.038,
         method="screw_regrasp",
         dynamics={"friction": (0.05, 0.3), "damping": (0.0, 0.1), "armature": (0.001, 0.003)},
         robot_material={"static_friction_range": (0.8, 0.8), "dynamic_friction_range": (0.6, 0.6)},
@@ -401,7 +440,7 @@ ASSETS = {
         rot=(0.0, -0.70710678, 0.0, 0.70710678),
         viewer={"body_name": "nut"},
         panel_pos=(0.0, 0.0, 0.0),
-        panel_rot=(0.0, 0.70710678, 0.0, 0.70710678),
+        panel_rot=(0.0, -0.70710678, 0.0, 0.70710678),
         joints={
             "RevoluteJoint": {"friction": 0.02, "dynamic_friction": 0.0, "viscous_friction": 0.0},
             "PrismaticJoint": {
@@ -410,14 +449,25 @@ ASSETS = {
                 "effort_limit_sim": 1000.0,
             },
         },
-        frame_path="Geometry/World/nut",
+        frame_path="Geometry/World",
         frame_rot=(0.0, 0.70710678, 0.0, 0.70710678),
         targets={
-            "approaching": {"pos": (-0.04, 0.0, 0.25)},
-            "nut_grasp": {"pos": (-0.05, 0.0, 0.16)},
+            "approaching": {
+                "pos": (0.1475, 0.0, 0.1462429),
+                "rot": (0.0, 0.7071067812, 0.7071067812, 0.0),
+            },
+            "nut_grasp": {
+                "pos": (0.0675, 0.0, 0.1462429),
+                "rot": (0.0, 0.7071067812, 0.7071067812, 0.0),
+                "contact_pos": (0.0475, 0.0, 0.1462429),
+                "contact_length": 0.014,
+            },
             "rotate_frame": {"pos": (0.0, 0.0, 0.16)},
         },
         grasp_frame="nut_grasp",
+        mode="contact_grasp",
+        grip_width=0.007,
+        turn_step_deg=60.0,
         method="wheel_turn",
         dynamics={"friction": (0.02, 0.02)},
     ),
@@ -447,13 +497,14 @@ ASSETS = {
         frame_path="Geometry/World",
         frame_rot=(0.0, 0.25881904510252074, 0.9659258262890683, 0.0),
         targets={
-            "approaching": {"pos": (0.17, 0.0, 0.0)},
-            "grasp": {"pos": (0.032, 0.0, 0.0)},
-            "clear": {"pos": (0.062, 0.0, 0.0)},
+            "approaching": {"pos": (0.15, 0.0, 0.0)},
+            "grasp": {"pos": (0.012, 0.0, 0.0)},
+            "clear": {"pos": (0.042, 0.0, 0.0)},
             "rotate_frame": {"pos": (0.012, 0.0, 0.0), "rot": FACE},
         },
         grasp_frame="grasp",
         mode="contact_grasp",
+        grip_width=0.008,
         method="screw_regrasp",
         dynamics={"friction": (0.01, 0.03)},
         robot_material={"static_friction_range": (0.8, 0.8), "dynamic_friction_range": (0.6, 0.6)},
@@ -489,12 +540,23 @@ ASSETS = {
         frame_rot=FACE,
         targets={
             "approaching": {"pos": (0.17, 0.0, 0.0)},
-            "grasp": {"pos": (0.057, 0.0, 0.0)},
-            "clear": {"pos": (0.087, 0.0, 0.0)},
-            "rotate_frame": {"pos": (0.037, 0.0, 0.0)},
+            "grasp": {
+                "path": "Peg/Geometry/World/rot_pivot/peg",
+                "pos": (0.0, 0.0, 0.0545),
+                "contact_pos": (0.0, 0.0, 0.0265),
+                "contact_length": 0.023,
+                "rot": (0.0, 0.7071067811865476, 0.0, 0.7071067811865476),
+            },
+            "clear": {
+                "path": "Peg/Geometry/World/rot_pivot/peg",
+                "pos": (0.0, 0.0, 0.0845),
+                "rot": (0.0, 0.7071067811865476, 0.0, 0.7071067811865476),
+            },
+            "rotate_frame": {"pos": (0.0, 0.0, 0.0), "rot": FACE},
         },
         grasp_frame="grasp",
         mode="contact_grasp",
+        grip_width=0.0,
         method="screw_regrasp",
         dynamics={"friction": (0.01, 0.03)},
         robot_material={"static_friction_range": (0.8, 0.8), "dynamic_friction_range": (0.6, 0.6)},
@@ -513,7 +575,7 @@ ASSETS = {
         panel_pos=(-0.0647325, 0.0, 0.0),
         joints={
             "RevoluteJoint": {
-                "stiffness": 80.0,
+                "stiffness": 0.0,
                 "damping": 1.0,
                 "armature": 0.01,
                 "friction": 0.0,
@@ -536,12 +598,21 @@ ASSETS = {
         frame_path="Geometry/World/rotation_pivot/lamp_pivot",
         frame_rot=FACE,
         targets={
-            "approaching": {"pos": (0.126, 0.0, 0.0)},
-            "lamp_grasp": {"pos": (0.076, 0.0, 0.0)},
-            "screw_frame": {"pos": (0.076, 0.0, 0.0)},
+            "approaching": {"path": "Lamp/Geometry/World", "pos": (0.15, 0.0, 0.0)},
+            "grasp": {
+                "pos": (0.076, 0.0, 0.0),
+                "contact_pos": (0.035, 0.0, 0.0),
+                "contact_length": 0.080,
+            },
+            "clear": {"pos": (0.126, 0.0, 0.0)},
+            "rotate_frame": {"pos": (0.0, 0.0, 0.0), "rot": FACE},
         },
-        grasp_frame="lamp_grasp",
+        grasp_frame="grasp",
+        orientation_frame="approaching",
         mode="contact_grasp",
+        grip_width=0.048,
+        method="screw_regrasp",
+        dynamics={"damping": (1.0, 1.0), "armature": (0.01, 0.01)},
     ),
     "button": AssetCfg(
         name="button",
@@ -550,26 +621,23 @@ ASSETS = {
         rot=(0.0, 0.7071067811865476, 0.7071067811865476, 0.0),
         viewer={"body_name": "button_pivot"},
         panel_pos=(-0.041, 0.0, 0.0),
+        joint="PrismaticJoint",
         joints={
             "RevoluteJoint": {"friction": 0.02, "effort_limit_sim": 2.0},
             "PrismaticJoint": {"stiffness": 100.0, "damping": 2.0, "effort_limit_sim": 5.0},
         },
         closed_end_stop=True,
         frame_path="Geometry/World",
-        frame_rot=FACE,
+        frame_rot=(-0.2391176184, 0.3696438106, 0.8923991008, 0.0990457605),
         targets={
-            "lid_approaching": {
-                "pos": (0.1, -0.018, 0.0),
-                "rot": (0.0, 0.70710678, 0.70710678, 0.0),
-            },
-            "lid_grasp": {"pos": (0.02375, -0.018, 0.0), "rot": (0.0, 0.70710678, 0.70710678, 0.0)},
-            "rotate_frame": {"pos": (-0.0034325, 0.0304632, 0.0059481859)},
-            "button_approaching": {"pos": (0.1, 0.0, 0.0)},
-            "button_press": {"pos": (0.002, 0.0, 0.0)},
+            "approaching": {"pos": (0.1, 0.00455, -0.0099)},
+            "contact": {"pos": (0.0287, 0.00455, -0.0099)},
+            "push": {"pos": (0.0187, 0.00455, -0.0099)},
         },
-        grasp_frame="lid_grasp",
-        mode="contact_grasp",
-        dynamics={"friction": (0.005, 0.05)},
+        grasp_frame="contact",
+        mode="push",
+        grip_width=0.0,
+        method="linear_push",
         robot_material={"static_friction_range": (0.8, 0.8), "dynamic_friction_range": (0.6, 0.6)},
         mechanism_material={
             "static_friction_range": (0.5, 1.0),
@@ -580,28 +648,39 @@ ASSETS = {
         name="drawer",
         prim="DrawerHousing",
         usd=assets.DRAWER_HOUSING_NEWTON_USD,
+        manipuland_usd=assets.DRAWER_BOX_NEWTON_USD,
         rot=FACE,
         panel_pos=(-0.02, 0.0, 0.0),
+        joint=None,
         joints={},
         frame_path="Geometry/base",
-        frame_rot=(-0.21643961, 0.0, 0.97629601, 0.0),
+        frame_rot=(0.0, 0.7071067812, 0.7071067812, 0.0),
         targets={
-            "drawer_approaching": {"pos": (0.143595, 0.001, 0.055339)},
-            "drawer_grasp": {"pos": (0.071595, 0.001, 0.015339)},
-            "drawer_pulled": {"pos": (0.097195, 0.001, 0.015339)},
-            "drawer_extract_0": {"pos": (0.098095, 0.001, 0.024339)},
-            "drawer_extract_1": {"pos": (0.099595, 0.001, 0.027839)},
-            "drawer_extract_2": {"pos": (0.113595, 0.001, 0.027839)},
-            "drawer_extract_3": {"pos": (0.141595, 0.001, 0.045339)},
+            "approaching": {"pos": (0.143595, 0.001, 0.009)},
+            "grasp": {
+                "path": "Manipuland/Geometry/drawer",
+                "pos": (0.071595, 0.001, 0.009),
+                "contact_pos": (0.044, 0.001, 0.009),
+                "contact_length": 0.01,
+            },
+            "pulled": {
+                "pos": (0.102195, 0.001, 0.009),
+                "contact_pos": (0.0746, 0.001, 0.009),
+                "contact_length": 0.01,
+            },
+            "clear": {"pos": (0.169195, 0.001, 0.009)},
         },
-        grasp_frame="drawer_grasp",
+        grasp_frame="grasp",
         mode="contact_grasp",
+        grip_width=0.008,
+        method="linear_pull",
         robot_material={"static_friction_range": (0.8, 0.8), "dynamic_friction_range": (0.6, 0.6)},
     ),
     "key": AssetCfg(
         name="key",
         prim="Lock",
         usd=assets.LOCK_NEWTON_USD,
+        gravity=True,
         rot=FACE,
         viewer={"body_name": "lock"},
         panel_pos=(-0.03, 0.0, 0.0),
@@ -617,12 +696,19 @@ ASSETS = {
         frame_path="Geometry/lock",
         frame_rot=(0.0, 0.7071067811865475, 0.7071067811865476, 0.0),
         targets={
-            "key_approaching": {"pos": (0.148, 0.0, 0.0)},
-            "key_entry": {"pos": (0.08, 0.0, 0.0)},
-            "key_inserted": {"pos": (0.068, 0.0, 0.0)},
-            "rotate_frame": {"pos": (0.068, 0.0, 0.0), "rot": FACE},
+            "approaching": {"pos": (0.155, 0.001, 0.0)},
+            "grasp": {
+                "path": "Lock/Geometry/lock/key",
+                "pos": (0.083, 0.001, 0.0),
+                "contact_pos": (0.0605, 0.001, 0.0),
+                "contact_length": 0.025,
+            },
+            "rotate_frame": {"pos": (0.0, 0.0, 0.0), "rot": FACE},
         },
-        grasp_frame="key_inserted",
+        grasp_frame="grasp",
+        mode="contact_grasp",
+        grip_width=0.0,
+        method="lever_turn",
         dynamics={"friction": (0.005, 0.05)},
         robot_material={"static_friction_range": (0.8, 0.8), "dynamic_friction_range": (0.6, 0.6)},
         mechanism_material={
@@ -644,14 +730,14 @@ ASSETS = {
         frame_path="Geometry/board",
         frame_rot=(0.0, 0.25881904510252074, 0.9659258262890683, 0.0),
         targets={
-            "pin_approaching": {"pos": (0.15, 0.0, 0.035)},
-            "pin_grasp": {"pos": (0.058, 0.0, 0.035)},
-            "pin_push": {"pos": (0.046, 0.0, 0.035)},
-            "press_approaching": {"pos": (0.085, 0.0, 0.035), "rot": FACE},
-            "press": {"pos": (0.05, 0.0, 0.035), "rot": FACE},
+            "approaching": {"pos": (0.125, 0.000111, 0.035)},
+            "contact": {"pos": (0.055, 0.000111, 0.035)},
+            "push": {"pos": (0.035, 0.000111, 0.035)},
         },
-        grasp_frame="pin_grasp",
-        mode="contact_grasp",
+        grasp_frame="contact",
+        mode="push",
+        grip_width=0.0,
+        method="linear_push",
         dynamics={"friction": (0.005, 0.05)},
         robot_material={"static_friction_range": (0.8, 0.8), "dynamic_friction_range": (0.6, 0.6)},
         mechanism_material={
@@ -662,8 +748,8 @@ ASSETS = {
 }
 
 TASKS = {
-    "open_ball_valve": TaskCfg(
-        name="open_ball_valve",
+    "open_ball_valve_simple": TaskCfg(
+        name="open_ball_valve_simple",
         asset=ASSETS["ball_valve"],
         start=0.0,
         target=-math.pi / 2,
@@ -672,8 +758,8 @@ TASKS = {
         joint_offset=(-0.4, 0.0),
         episode_length_s=17.0,
     ),
-    "open_small_valve": TaskCfg(
-        name="open_small_valve",
+    "open_small_valve_simple": TaskCfg(
+        name="open_small_valve_simple",
         asset=ASSETS["small_valve"],
         start=0.0,
         target=-math.pi / 2,
@@ -682,30 +768,88 @@ TASKS = {
         joint_offset=(-0.4, 0.0),
         episode_length_s=17.0,
     ),
-    "open_high_torque_valve": TaskCfg(
-        name="open_high_torque_valve",
+    "open_high_torque_valve_simple": TaskCfg(
+        name="open_high_torque_valve_simple",
         asset=ASSETS["high_torque_valve"],
         start=0.0,
         target=-math.pi,
         tolerance=0.035,
-        episode_length_s=22.0,
+        episode_length_s=32.0,
     ),
-    "switch_circuit_breaker": TaskCfg(
-        name="switch_circuit_breaker",
+    "switch_circuit_breaker_simple": TaskCfg(
+        name="switch_circuit_breaker_simple",
         asset=ASSETS["circuit_breaker"],
         start=math.pi / 6,
         target=-math.pi / 6,
         tolerance=0.1,
         episode_length_s=9.0,
     ),
-    "tighten_m30_thread": TaskCfg(
-        name="tighten_m30_thread",
+    "tighten_m30_thread_simple": TaskCfg(
+        name="tighten_m30_thread_simple",
         asset=ASSETS["m30_thread"],
         start=0.0,
         target=-4 * math.pi,
         tolerance=4 * math.pi / 7,
         pose={"roll": (-math.pi, math.pi)},
+        episode_length_s=75.0,
+    ),
+    "tighten_m8_thread_simple": TaskCfg(
+        name="tighten_m8_thread_simple",
+        asset=ASSETS["m8_thread"],
+        start=0.0,
+        target=-4 * math.pi,
+        tolerance=math.tau * 0.0005 / ASSETS["m8_thread"].pitch,
+        pose={"roll": (-math.pi, math.pi)},
+        episode_length_s=75.0,
+    ),
+    "insert_peg_simple": TaskCfg(
+        name="insert_peg_simple",
+        asset=ASSETS["peg_insertion"],
+        start=0.0,
+        target=-4 * math.pi,
+        tolerance=0.1,
         episode_length_s=57.0,
+    ),
+    "insert_shock_pin_simple": TaskCfg(
+        name="insert_shock_pin_simple",
+        asset=ASSETS["shock_absorber"],
+        start=0.020,
+        target=0.0,
+        tolerance=0.001,
+        episode_length_s=12.0,
+    ),
+    "tighten_lamp_simple": TaskCfg(
+        name="tighten_lamp_simple",
+        asset=ASSETS["lamp"],
+        start=0.0,
+        target=-7.5 * math.pi,
+        tolerance=0.1,
+        episode_length_s=140.0,
+    ),
+    "press_button_simple": TaskCfg(
+        name="press_button_simple",
+        asset=ASSETS["button"],
+        start=0.0,
+        target=-0.010,
+        tolerance=0.0005,
+        persistent_goal=False,
+        episode_length_s=12.0,
+    ),
+    "open_drawer_simple": TaskCfg(
+        name="open_drawer_simple",
+        asset=ASSETS["drawer"],
+        start=0.0,
+        target=0.0256,
+        tolerance=0.001,
+        episode_length_s=14.0,
+    ),
+    "turn_key_simple": TaskCfg(
+        name="turn_key_simple",
+        asset=ASSETS["key"],
+        start=0.0,
+        target=math.pi / 2,
+        tolerance=0.035,
+        episode_length_s=17.0,
     ),
 }
 
@@ -721,10 +865,19 @@ def mechanism_asset(env):
 
 
 def mechanism_joint_id(env):
+    if env.cfg.task.asset.joint is None:
+        return None
     return mechanism_asset(env).find_joints(env.cfg.task.asset.joint)[0][0]
 
 
 def mechanism_position(env):
+    if env.cfg.task.asset.joint is None:
+        root, body = mechanism_asset(env).data, env.scene["manipuland"].data
+        pos, _ = math_utils.subtract_frame_transforms(
+            root.root_pos_w.torch, root.root_quat_w.torch,
+            body.root_pos_w.torch, body.root_quat_w.torch,
+        )
+        return pos[:, 0] - env.cfg.task.asset.manipuland_pos[0]
     return mechanism_asset(env).data.joint_pos.torch[:, mechanism_joint_id(env)]
 
 
@@ -736,6 +889,25 @@ def write_mechanism_position(env, env_ids, angle, rate=None):
     asset = env.cfg.task.asset
     mechanism = mechanism_asset(env)
     rate = torch.zeros_like(angle) if rate is None else rate
+    if asset.joint is None:
+        body = env.scene["manipuland"]
+        root = mechanism.data
+        offset = angle.new_tensor(asset.manipuland_pos).expand(len(env_ids), -1).clone()
+        offset[:, 0] += angle
+        pos, quat = math_utils.combine_frame_transforms(
+            root.root_pos_w.torch[env_ids], root.root_quat_w.torch[env_ids],
+            offset, angle.new_tensor(asset.manipuland_rot).expand(len(env_ids), -1),
+        )
+        velocity = torch.zeros(len(env_ids), 6, device=env.device)
+        velocity[:, 0] = rate
+        velocity[:, :3] = math_utils.quat_apply(
+            root.root_quat_w.torch[env_ids], velocity[:, :3]
+        )
+        body.write_root_pose_to_sim_index(
+            root_pose=torch.cat((pos, quat), dim=-1), env_ids=env_ids
+        )
+        body.write_root_velocity_to_sim_index(root_velocity=velocity, env_ids=env_ids)
+        return
     joints = [mechanism_joint_id(env)]
     pos, vel = angle[:, None], rate[:, None]
     if asset.pitch is not None:
@@ -786,6 +958,27 @@ def spawn_movable_panel(prim_path, cfg, translation=None, orientation=None):
     return prim
 
 
+def reset_manipuland(env, env_ids):
+    ids = all_ids(env, env_ids)
+    asset, root = env.cfg.task.asset, mechanism_asset(env).data
+    pos, quat = math_utils.combine_frame_transforms(
+        root.root_pos_w.torch[ids], root.root_quat_w.torch[ids],
+        root.root_pos_w.torch.new_tensor(asset.manipuland_pos).expand(len(ids), -1),
+        root.root_quat_w.torch.new_tensor(asset.manipuland_rot).expand(len(ids), -1),
+    )
+    body = env.scene["manipuland"]
+    body.write_root_pose_to_sim_index(root_pose=torch.cat((pos, quat), dim=-1), env_ids=ids)
+    body.write_root_velocity_to_sim_index(
+        root_velocity=torch.zeros(len(ids), 6, device=env.device), env_ids=ids
+    )
+
+
+def reset_goal(env, env_ids):
+    if not hasattr(env, "goal_reached"):
+        env.goal_reached = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    env.goal_reached[all_ids(env, env_ids)] = False
+
+
 def reset_panel(env, env_ids, pos, rot):
     ids = all_ids(env, env_ids)
     pose = mechanism_asset(env).data.root_link_pose_w[ids]
@@ -829,7 +1022,9 @@ class randomize_dynamics(ManagerTermBase):
             ranges["spring"][1] == ranges["breakaway"][1] == cfg.params["stuck_prob"] == 0.0
         ), f"'{task.asset.name}' has no end stop at closed for a spring or seat torque"
         self.mechanism = mechanism_asset(env)
-        self.joint_ids = self.mechanism.find_joints(task.asset.joint)[0]
+        self.joint_ids = (
+            self.mechanism.find_joints(task.asset.joint)[0] if task.asset.joint else []
+        )
         self.closed_rad = task.start
         self.params = torch.zeros(env.num_envs, len(DYNAMICS), device=env.device)
         stuck_breakaway = cfg.params["stuck_breakaway"]
@@ -861,6 +1056,8 @@ class randomize_dynamics(ManagerTermBase):
 
     def write(self, env_ids, values):
         self.params[env_ids] = values
+        if not self.joint_ids:
+            return
         self.mechanism.write_joint_friction_coefficient_to_sim_index(
             joint_friction_coeff=values[:, 0:1].contiguous(),
             joint_viscous_friction_coeff=values[:, 1:2].contiguous(),
@@ -875,7 +1072,8 @@ class randomize_dynamics(ManagerTermBase):
 class LoadAction(ActionTerm):
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
-        self._joint_ids = self._asset.find_joints(env.cfg.task.asset.joint)[0]
+        joint = env.cfg.task.asset.joint
+        self._joint_ids = self._asset.find_joints(joint)[0] if joint else []
         self._closed_rad = env.cfg.task.start
         self._opening_sign = opening_sign(env)
         self._empty = torch.zeros(self.num_envs, 0, device=self.device)
@@ -896,6 +1094,8 @@ class LoadAction(ActionTerm):
         pass
 
     def apply_actions(self):
+        if not self._joint_ids:
+            return
         term = self._env.dynamics_term
         angle = self._asset.data.joint_pos.torch[:, self._joint_ids[0]]
         spring, breakaway, sign = term.params[:, 2], term.params[:, 3], self._opening_sign
@@ -949,12 +1149,15 @@ class EventCfg:
     mechanism_gravcomp = None
     robot_physics_material = None
     mechanism_physics_material = None
+    manipuland_physics_material = None
     contacts = None
     reset_all = None
     reset_mechanism_root = None
     reset_mechanism_joint = None
+    reset_manipuland = None
     reset_arm = None
     dynamics = None
+    reset_goal = None
     reset_panel = None
     end_stops = None
 
@@ -1002,9 +1205,14 @@ def build(cfg, robot_name, task_name):
         prim_path="/World/light",
         spawn=sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0),
     )
-    pos, rot = math_utils.combine_frame_transforms(
-        *as_pose(robot.board_pos, robot.board_rot), *as_pose(asset.pos, asset.rot)
-    )
+    pos, rot = as_pose(asset.pos, asset.rot)
+    if robot.board_pos is not None:
+        pos, rot = math_utils.subtract_frame_transforms(
+            *as_pose(asset.panel_pos, asset.panel_rot)
+        )
+        pos, rot = math_utils.combine_frame_transforms(
+            *as_pose(robot.board_pos, robot.board_rot), pos, rot
+        )
     setattr(
         scene,
         name,
@@ -1014,7 +1222,7 @@ def build(cfg, robot_name, task_name):
                 usd_path=asset.usd,
                 activate_contact_sensors=True,
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                    disable_gravity=True,
+                    disable_gravity=not asset.gravity,
                     retain_accelerations=False,
                     linear_damping=0.0,
                     angular_damping=0.0,
@@ -1039,7 +1247,7 @@ def build(cfg, robot_name, task_name):
                     )
                     for joint in asset.joints
                 },
-                joint_vel={".*": 0.0},
+                joint_vel={joint: 0.0 for joint in asset.joints},
             ),
             actuators={
                 joint: ImplicitActuatorCfg(
@@ -1050,6 +1258,23 @@ def build(cfg, robot_name, task_name):
             },
         ),
     )
+    if asset.manipuland_usd is not None:
+        body_pos, body_rot = math_utils.combine_frame_transforms(
+            pos, rot, *as_pose(asset.manipuland_pos, asset.manipuland_rot)
+        )
+        scene.manipuland = RigidObjectCfg(
+            prim_path="{ENV_REGEX_NS}/Manipuland",
+            spawn=sim_utils.UsdFileCfg(
+                usd_path=asset.manipuland_usd,
+                activate_contact_sensors=True,
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                    disable_gravity=False, max_depenetration_velocity=1.0,
+                ),
+            ),
+            init_state=RigidObjectCfg.InitialStateCfg(
+                pos=tuple(body_pos[0].tolist()), rot=tuple(body_rot[0].tolist())
+            ),
+        )
     pos, rot = math_utils.combine_frame_transforms(
         pos, rot, *as_pose(asset.panel_pos, asset.panel_rot)
     )
@@ -1067,17 +1292,29 @@ def build(cfg, robot_name, task_name):
         ),
     )
     frame_path = "{ENV_REGEX_NS}/" + asset.prim + "/" + asset.frame_path
+    targets = []
+    for frame, value in asset.targets.items():
+        target_pos = value["pos"]
+        if "contact_pos" in value:
+            center = torch.tensor(value["contact_pos"], dtype=torch.float64)
+            delta = torch.tensor(target_pos, dtype=torch.float64) - center
+            radius = max(0.0, (robot.pad_length - value["contact_length"]) / 2)
+            distance = float(delta.norm())
+            if distance > radius:
+                target_pos = tuple((center + delta * (radius / distance)).tolist())
+        targets.append(
+            FrameTransformerCfg.FrameCfg(
+                prim_path=(
+                    "{ENV_REGEX_NS}/" + value["path"] if "path" in value else frame_path
+                ),
+                name=frame,
+                offset=OffsetCfg(pos=target_pos, rot=value.get("rot", asset.frame_rot)),
+            )
+        )
     scene.target_frame = FrameTransformerCfg(
         prim_path=frame_path,
         debug_vis=False,
-        target_frames=[
-            FrameTransformerCfg.FrameCfg(
-                prim_path=frame_path,
-                name=frame,
-                offset=OffsetCfg(pos=value["pos"], rot=value.get("rot", asset.frame_rot)),
-            )
-            for frame, value in asset.targets.items()
-        ],
+        target_frames=targets,
     )
     actuators = dict(robot.articulation.actuators)
     for group, effort in robot.grip_effort.items():
@@ -1090,7 +1327,10 @@ def build(cfg, robot_name, task_name):
             prim_path="{ENV_REGEX_NS}/Robot/" + pad,
             update_period=0.0,
             history_length=1,
-            filter_prim_paths_expr=["{ENV_REGEX_NS}/" + asset.prim + "/.*"],
+            filter_prim_paths_expr=[
+                "{ENV_REGEX_NS}/" + asset.prim + "/.*",
+                *(["{ENV_REGEX_NS}/Manipuland/.*"] if asset.manipuland_usd else []),
+            ],
         )
         setattr(scene, sensor, contact)
     coupling = screw_coupling(asset)
@@ -1100,6 +1340,11 @@ def build(cfg, robot_name, task_name):
         )
     actions = cfg.actions
     actions.arm_action.joint_names = list(robot.arm_joint_names)
+    if asset.grip_width is not None and robot.gripper_width_scale is not None:
+        robot.gripper_close = {
+            joint: asset.grip_width * robot.gripper_width_scale
+            for joint in robot.gripper_close
+        }
     actions.gripper_action.joint_names = list(robot.gripper_joint_names)
     actions.gripper_action.open_command_expr = robot.gripper_open
     actions.gripper_action.close_command_expr = robot.gripper_close
@@ -1107,14 +1352,17 @@ def build(cfg, robot_name, task_name):
     actions.load.asset_name = name
     events = cfg.events
     events.quiet_solver = EventTermCfg(func=silence_solver_overflow_warnings, mode="startup")
-    for key, entity in (("robot", SceneEntityCfg("robot")), ("mechanism", SceneEntityCfg(name))):
+    for key, entity, gravcomp in (
+        ("robot", SceneEntityCfg("robot"), 1.0),
+        ("mechanism", SceneEntityCfg(name), float(not asset.gravity)),
+    ):
         setattr(
             events,
             key + "_gravcomp",
             EventTermCfg(
                 func=apply_articulation_gravcomp,
                 mode="startup",
-                params={"asset_cfg": entity, "gravcomp": 1.0},
+                params={"asset_cfg": entity, "gravcomp": gravcomp},
             ),
         )
     events.robot_physics_material = EventTermCfg(
@@ -1144,6 +1392,14 @@ def build(cfg, robot_name, task_name):
             **asset.mechanism_material,
         },
     )
+    if asset.manipuland_usd is not None:
+        events.manipuland_physics_material = events.mechanism_physics_material.replace(
+            params={
+                **events.mechanism_physics_material.params,
+                "asset_cfg": SceneEntityCfg("manipuland"),
+            }
+        )
+        events.reset_manipuland = EventTermCfg(func=reset_manipuland, mode="reset")
     events.contacts = EventTermCfg(
         func=set_contact_stiffness,
         mode="startup",
@@ -1151,7 +1407,10 @@ def build(cfg, robot_name, task_name):
             "ke": 40000.0,
             "kd": 400.0,
             "solimp": (0.95, 0.99, 0.001),
-            "shape_regex": f"{robot.contact_shapes}|/{asset.prim}/",
+            "shape_regex": (
+                f"{robot.contact_shapes}|/{asset.prim}/"
+                + ("|/Manipuland/" if asset.manipuland_usd else "")
+            ),
         },
     )
     events.reset_all = EventTermCfg(
@@ -1166,6 +1425,8 @@ def build(cfg, robot_name, task_name):
             "stuck_breakaway": asset.stuck_breakaway,
         },
     )
+    if not task.persistent_goal:
+        events.reset_goal = EventTermCfg(func=reset_goal, mode="reset")
     events.reset_panel = EventTermCfg(
         func=reset_panel, mode="reset", params={"pos": asset.panel_pos, "rot": asset.panel_rot}
     )
@@ -1211,28 +1472,30 @@ class sample_expert_diversity(ManagerTermBase):
                 for h in handlers[actuate[-1] + 1 :]
                 if isinstance(h, _CuroboPlannedGoToFrameHandler)
             ]
-
-            def goal(handler):
-                cfg, name = handler._frame.cfg, handler.cfg.target_frame_name
-                frame = next(f for f in cfg.target_frames if f.name == name)
-                assert frame.prim_path == cfg.target_frames[0].prim_path
-                return math_utils.combine_frame_transforms(
-                    *(
-                        torch.tensor([x], device=env.device)
-                        for x in (
-                            frame.offset.pos,
-                            frame.offset.rot,
-                            handler.cfg.target_offset_pos,
-                            handler.cfg.target_offset_rot,
+            self.moved = []
+            self.moved_in_grasp = []
+            if any(ranges["grasp_shift"]) or any(ranges["grasp_roll"]):
+                def goal(handler):
+                    cfg, name = handler._frame.cfg, handler.cfg.target_frame_name
+                    frame = next(f for f in cfg.target_frames if f.name == name)
+                    assert frame.prim_path == cfg.target_frames[0].prim_path
+                    return math_utils.combine_frame_transforms(
+                        *(
+                            torch.tensor([x], device=env.device)
+                            for x in (
+                                frame.offset.pos,
+                                frame.offset.rot,
+                                handler.cfg.target_offset_pos,
+                                handler.cfg.target_offset_rot,
+                            )
                         )
                     )
-                )
 
-            grasp = goal(self.grasp)
-            self.moved = self.reach[:-1] + self.push
-            self.moved_in_grasp = [
-                math_utils.subtract_frame_transforms(*grasp, *goal(h)) for h in self.moved
-            ]
+                grasp = goal(self.grasp)
+                self.moved = self.reach[:-1] + self.push
+                self.moved_in_grasp = [
+                    math_utils.subtract_frame_transforms(*grasp, *goal(h)) for h in self.moved
+                ]
         ids = all_ids(env, env_ids)
         n = len(ids)
         values = torch.empty(n, len(EXPERT_DIVERSITY), device=env.device)
@@ -1300,15 +1563,16 @@ def expert(cfg):
             "asset_cfg": SceneEntityCfg(asset.name),
         },
     )
-    events.reset_mechanism_joint = EventTermCfg(
-        func=base_mdp.reset_joints_by_offset,
-        mode="reset",
-        params={
-            "position_range": task.joint_offset,
-            "velocity_range": (0.0, 0.0),
-            "asset_cfg": SceneEntityCfg(asset.name, joint_names=[asset.joint]),
-        },
-    )
+    if asset.joint is not None:
+        events.reset_mechanism_joint = EventTermCfg(
+            func=base_mdp.reset_joints_by_offset,
+            mode="reset",
+            params={
+                "position_range": task.joint_offset,
+                "velocity_range": (0.0, 0.0),
+                "asset_cfg": SceneEntityCfg(asset.name, joint_names=[asset.joint]),
+            },
+        )
     events.reset_arm = EventTermCfg(
         func=reset_joints_from_postures,
         mode="reset",
@@ -1320,7 +1584,12 @@ def expert(cfg):
     )
     skills = SkillSet(robot_joint_names=arm, **robot.planner)
     planned = {"plan_batch_size": cfg.scene.num_envs}
-    goto = {**planned, "wrist_flip_joints": robot.wrist_flip}
+    goto = {
+        **planned,
+        "wrist_flip_joints": robot.wrist_flip,
+        "upright_axis": robot.upright_axes.get(asset.method, (0.0, 0.0, 1.0)),
+        "orientation_frame_name": asset.orientation_frame,
+    }
     minimum = robot.min_duration_s
     diversity = {
         "turn_rate": (0.25, 0.5),
@@ -1332,18 +1601,17 @@ def expert(cfg):
     overshoot = (0.0, 0.0)
     max_open_s = math.inf
     if asset.method == "lever_turn":
-        diversity.update(grasp_shift=(-0.015, 0.015), grasp_roll=(-0.25, 0.25))
+        shift = 0.015 if asset.grip_width is None else asset.grip_width / 4
+        diversity.update(grasp_shift=(-shift, shift), grasp_roll=(-shift / 0.06, shift / 0.06))
         grasp_axes = ((0.0, 0.0, -1.0),) * 2
-        overshoot = (0.03, 0.05)
-        if robot.name == "anymal":
-            goto["upright_axis"] = (0.0, 1.0, 0.0)
+        overshoot = (0.03 + asset.backlash, 0.05)
         commands = [
             skills.approach("approaching", chain_with_next=True, **goto),
             skills.engage(asset.grasp_frame, chain_with_next=not minimum["grip"], **goto),
         ]
         if minimum["grip"]:
             commands.append(skills.grip(duration_s=minimum["grip"]))
-        commands.append(skills.turn(use_valve_angle=False, **planned))
+        commands.append(skills.turn(**planned))
         if minimum["hold"]:
             commands.append(skills.hold(phase="actuate", duration_s=minimum["hold"]))
         commands.extend(
@@ -1361,31 +1629,56 @@ def expert(cfg):
     elif asset.method == "wheel_turn":
         diversity.update(grasp_shift=(-0.005, 0.005), grasp_roll=(-0.12, 0.12))
         overshoot = (0.0, 0.05)
-        commands = [
-            skills.approach("approaching", chain_with_next=True, **goto),
-            skills.engage(asset.grasp_frame, **goto),
-            skills.grip(duration_s=max(0.3, minimum["grip"])),
-            skills.turn(angle_threshold_deg=0.25, **planned),
-            skills.release(duration_s=max(0.375, minimum["release"])),
-            skills.retreat("approaching", velocity=0.25, hold_current_orientation=True, **goto),
-        ]
+        until = MechanismGoalCfg(
+            low=task.target - task.tolerance / 2 if task.target > task.start else None,
+            high=task.target + task.tolerance / 2 if task.target < task.start else None,
+        )
+        cycles = math.ceil(
+            math.degrees(abs(task.target - task.start)) / asset.turn_step_deg
+        ) + 1
+        commands = [skills.approach("approaching", **goto)]
+        for cycle in range(cycles):
+            commands.extend([
+                skills.engage(asset.grasp_frame, gripper_open=True, until=until, **goto),
+                skills.grip(duration_s=max(0.7, minimum["grip"]), until=until),
+                skills.turn(
+                    max_ee_rotation_deg=asset.turn_step_deg,
+                    angle_threshold_deg=0.25,
+                    until=until,
+                    **planned,
+                ),
+                skills.hold(phase="actuate", duration_s=max(0.7, minimum["hold"])),
+                skills.release(duration_s=max(0.375, minimum["release"])),
+                skills.retreat(
+                    "approaching",
+                    velocity=0.25,
+                    distance_threshold=0.01,
+                    hold_current_orientation=cycle == cycles - 1,
+                    **goto,
+                ),
+            ])
     elif asset.method == "push":
         diversity.update(turn_rate=(0.1, 0.2), grasp_shift=(-0.01, 0.01), grasp_roll=(-0.3, 0.3))
         grasp_axes = ((0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
         max_open_s = 5.0
+        contact, target = asset.grasp_frame, "lever_pivot_above"
+        low, high = -math.inf, task.target + min(0.035, task.tolerance)
+        if task.target > task.start:
+            contact, target = target, contact
+            low, high = task.target - min(0.035, task.tolerance), math.inf
         commands = [
             skills.approach("approaching", gripper_open=False, **goto),
-            skills.engage(asset.grasp_frame, gripper_open=False, **goto),
+            skills.engage(contact, gripper_open=False, **goto),
             skills.move(
-                "lever_pivot_above",
+                target,
                 velocity=0.15,
                 distance_threshold=0.02,
-                done_when_joint=(asset.name, asset.joint, -1.0, task.target + 0.035),
+                done_when_joint=(asset.name, asset.joint, low, high),
                 **goto,
             ),
             skills.hold(phase="actuate", duration_s=max(0.3, minimum["hold"])),
             skills.retreat(
-                "lever_pivot_above",
+                target,
                 target_offset_pos=(-0.07, 0.0, 0.0),
                 gripper_open=False,
                 velocity=0.15,
@@ -1400,17 +1693,50 @@ def expert(cfg):
                 **goto,
             ),
         ]
+    elif asset.method in ("linear_push", "linear_pull"):
+        pushing = asset.method == "linear_push"
+        diversity["turn_rate"] = (0.02, 0.03)
+        contact = "contact" if pushing else "grasp"
+        target = "push" if pushing else "pulled"
+        commands = [
+            skills.approach("approaching", gripper_open=not pushing, **goto),
+            skills.engage(
+                contact, gripper_open=not pushing, distance_threshold=0.002, **goto
+            ),
+        ]
+        if not pushing:
+            commands.append(skills.grip(duration_s=max(0.5, minimum["grip"])))
+        commands.append(skills.move(
+            target, distance_threshold=0.0005 if pushing else 0.005, **goto
+        ))
+        if pushing:
+            commands[1].until = commands[-1].until = MechanismGoalCfg(
+                low=task.target - task.tolerance / 2 if task.target > task.start else None,
+                high=task.target + task.tolerance / 2 if task.target < task.start else None,
+            )
+        commands.append(skills.hold(phase="actuate", duration_s=max(0.7, minimum["hold"])))
+        if not pushing:
+            commands.append(skills.release(duration_s=max(0.4, minimum["release"])))
+        commands.append(skills.retreat(
+            "approaching" if pushing else "clear",
+            gripper_open=not pushing,
+            hold_current_orientation=True,
+            **goto,
+        ))
     elif asset.method == "screw_regrasp":
         diversity["turn_rate"] = (0.5, 0.75)
         turn = {
             **planned,
             "angular_velocity": 0.6,
             "angle_threshold_deg": 2.0,
-            "max_ee_rotation_deg": 120.0,
+            "max_ee_rotation_deg": robot.screw_turn_deg,
             "screw_pitch_m_per_revolution": asset.pitch,
         }
         commands = [skills.approach("approaching", **goto)]
-        for cycle in range(7):
+        cycles = math.ceil(
+            math.degrees(abs(task.target - task.start)) / turn["max_ee_rotation_deg"]
+        ) + 1
+        for cycle in range(cycles):
             commands.extend(
                 [
                     skills.engage(
@@ -1430,7 +1756,7 @@ def expert(cfg):
                         "clear",
                         velocity=0.1,
                         distance_threshold=0.01,
-                        hold_current_orientation=cycle == 6,
+                        hold_current_orientation=cycle == cycles - 1,
                         **goto,
                     ),
                 ]
@@ -1456,11 +1782,11 @@ def expert(cfg):
         resampling_time_range=(1.0e6, 1.0e6),
         open_task_prob=1.0,
         output_joint_positions=True,
-        valve_asset_name=asset.name,
+        valve_asset_name=asset.name if asset.joint is not None else None,
         valve_joint_name=asset.joint,
         valve_joint_open=task.target,
         valve_joint_closed=task.start,
-        valve_min_delta_rad=0.35,
+        valve_min_delta_rad=min(0.35, abs(task.target - task.start) / 2),
         screw_coupling=screw_coupling(asset),
         commands=commands,
     )

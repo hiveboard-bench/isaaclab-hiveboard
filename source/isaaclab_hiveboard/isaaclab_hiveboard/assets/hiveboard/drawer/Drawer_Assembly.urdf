@@ -1,10 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
 <robot name="Drawer_Assembly">
-  <!-- Contact-only guide: no prismatic constraint. The side cuts and shafts
-       are recovered from the upstream primitive meshes by generate_newton_usd.py.
-       The finite stop is about 25.6 mm from closed. Keep the housing mesh
-       visual-only: a single convex hull would fill the slot. Drawer side
-       walls are thin box proxies; the grasp tab retains its existing proxy. -->
   <link name="base">
     <inertial>
       <origin xyz="0.019 0 0" rpy="0 0 0" />
@@ -17,6 +12,24 @@
         <mesh filename="../../../../../../dependencies/HiveBoard/Simulation/Drawer/meshes/tn__Base1_gA_Corpo1_Mesh.obj" scale="0.001000 0.001000 0.001000" />
       </geometry>
     </visual>
+    <collision name="housing_floor">
+      <origin xyz="0.02175 0 -0.0235249996185" rpy="0 0 0" />
+      <geometry>
+        <box size="0.0325 0.0659045333862 0.003" />
+      </geometry>
+    </collision>
+    <collision name="housing_ceiling">
+      <origin xyz="0.0205 0 0.0235249996185" rpy="0 0 0" />
+      <geometry>
+        <box size="0.035 0.0659045333862 0.003" />
+      </geometry>
+    </collision>
+    <collision name="housing_rear">
+      <origin xyz="0.0015 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.003 0.0722968368530 0.0440499992371" />
+      </geometry>
+    </collision>
     <collision name="cut_left_ceiling">
       <origin xyz="0.013983 -0.036990 -0.011011" rpy="0. 0. 0." />
       <geometry>
@@ -92,9 +105,9 @@
   </link>
   <link name="drawer">
     <inertial>
-      <origin xyz="0.005229 0 -0.019627" rpy="0 0 0" />
+      <origin xyz="0.0222027304001 0.0000597208158516 -0.00469967479678" rpy="0 0 0" />
       <mass value="0.03" />
-      <inertia ixx="1e-05" ixy="0" ixz="0" iyy="1e-05" iyz="0" izz="1e-05" />
+      <inertia ixx="2.14878320447e-05" ixy="-3.67544292359e-08" ixz="-1.03032865738e-06" iyy="1.13636174429e-05" iyz="-2.46579909552e-08" izz="2.25343550786e-05" />
     </inertial>
     <visual>
       <origin xyz="0.002700 -0.035000 -0.022000" rpy="0. 0. 0." />
@@ -115,21 +128,39 @@
       </geometry>
     </visual>
     <collision name="face">
-      <origin xyz="0.044 0.001 0.009" rpy="0 0 0" />
+      <origin xyz="0.0427 0.000875 0.00905" rpy="0 0 0" />
       <geometry>
-        <box size="0.010 0.030 0.010" />
+        <box size="0.010 0.030 0.005" />
       </geometry>
     </collision>
     <collision name="side_left">
-      <origin xyz="0.0212 -0.034 -0.000225" rpy="0 0 0" />
+      <origin xyz="0.0202 -0.034 -0.001725" rpy="0 0 0" />
       <geometry>
-        <box size="0.033 0.002 0.04355" />
+        <box size="0.031 0.002 0.03655" />
       </geometry>
     </collision>
     <collision name="side_right">
-      <origin xyz="0.0212 0.034 -0.000225" rpy="0 0 0" />
+      <origin xyz="0.0202 0.034 -0.001725" rpy="0 0 0" />
       <geometry>
-        <box size="0.033 0.002 0.04355" />
+        <box size="0.031 0.002 0.03655" />
+      </geometry>
+    </collision>
+    <collision name="bottom">
+      <origin xyz="0.02145 0 -0.021" rpy="0 0 0" />
+      <geometry>
+        <box size="0.0325 0.070 0.002" />
+      </geometry>
+    </collision>
+    <collision name="rear">
+      <origin xyz="0.0037 0 -0.001475" rpy="0 0 0" />
+      <geometry>
+        <box size="0.002 0.070 0.03605" />
+      </geometry>
+    </collision>
+    <collision name="front">
+      <origin xyz="0.0367 0 -0.000225" rpy="0 0 0" />
+      <geometry>
+        <box size="0.002 0.070 0.04355" />
       </geometry>
     </collision>
     <collision name="shaft_left">

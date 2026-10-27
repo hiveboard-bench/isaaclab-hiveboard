@@ -818,6 +818,9 @@ class _GoToFrameHandler(_BaseCmdHandler):
         if cfg.target_position_env is None:
             self._frame = command_term._env.scene[cfg.frame_name]
             self._frame_idx = self._frame.data.target_frame_names.index(cfg.target_frame_name)
+            self._orientation_idx = self._frame.data.target_frame_names.index(
+                cfg.orientation_frame_name or cfg.target_frame_name
+            )
         self.command_pos_b = torch.zeros(self._num_envs, 3, device=self._device)
         self.command_quat_b = torch.zeros(self._num_envs, 4, device=self._device)
         self.command_quat_b[:, 3] = 1.0
@@ -910,7 +913,7 @@ class _GoToFrameHandler(_BaseCmdHandler):
             )
             return target_pos_b, (self._held_quat_b[env_ids] if target_quat_w is None else target_quat_b)
         target_pos_w = self._frame.data.target_pos_w.torch[env_ids, self._frame_idx]
-        target_quat_w = self._frame.data.target_quat_w.torch[env_ids, self._frame_idx]
+        target_quat_w = self._frame.data.target_quat_w.torch[env_ids, self._orientation_idx]
 
         target_pos_w, target_quat_w = self._apply_target_offset(target_pos_w, target_quat_w, env_ids)
 
@@ -3445,6 +3448,7 @@ class GoToFrameCfg(BaseCmd):
     """Name of the frame used for pose commands."""
     target_frame_name: str = MISSING  # type: ignore
     """Index of the frame used for pose commands."""
+    orientation_frame_name: str | None = None
     target_offset_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
     """Goal translation in the selected target frame [m]; ignored for fixed env goals."""
     target_offset_rot: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)
