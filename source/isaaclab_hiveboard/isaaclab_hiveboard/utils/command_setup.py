@@ -20,11 +20,12 @@ import re
 import tempfile
 from pathlib import Path
 
+from isaaclab_hiveboard.assets import ASSET_DIR
 from isaaclab_hiveboard.mdp.commands.sequential_pose_command import (
+    PHASES,
     CuroboPlannedGoToFrameCfg,
     CuroboPlannedRotateFrameCfg,
     GoToFrameCfg,
-    PHASES,
     GripperCommand,
     MechanismGoalCfg,
     RotateFrameCfg,
@@ -218,6 +219,14 @@ def encode_command(cmd) -> dict:
     }
     if cmd.until is not None:
         params["until"] = {name: getattr(cmd.until, name) for name in sorted(_GOAL_FIELDS)}
+    for name in ("robot_curobo_yaml", "robot_urdf"):
+        value = params.get(name)
+        if value and Path(value).is_absolute():
+            path = Path(value).resolve()
+            assets = Path(ASSET_DIR).resolve()
+            # External robot descriptions keep their explicit absolute path.
+            if path.is_relative_to(assets):
+                params[name] = path.relative_to(assets).as_posix()
     return {"type": type(cmd).__name__, "parameters": params}
 
 

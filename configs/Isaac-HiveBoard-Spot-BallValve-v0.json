@@ -55,8 +55,8 @@
           "arm_wr0",
           "arm_wr1"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/spot/cumotion/spot_arm.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/spot/spot_with_arm.urdf",
+        "robot_curobo_yaml": "spot/cumotion/spot_arm.yaml",
+        "robot_urdf": "spot/spot_with_arm.urdf",
         "num_ik_seeds": 4,
         "num_trajopt_seeds": 1,
         "max_plan_attempts": 1,
@@ -110,8 +110,8 @@
           "arm_wr0",
           "arm_wr1"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/spot/cumotion/spot_arm.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/spot/spot_with_arm.urdf",
+        "robot_curobo_yaml": "spot/cumotion/spot_arm.yaml",
+        "robot_urdf": "spot/spot_with_arm.urdf",
         "num_ik_seeds": 4,
         "num_trajopt_seeds": 1,
         "max_plan_attempts": 1,
@@ -175,8 +175,8 @@
           "arm_wr0",
           "arm_wr1"
         ],
-        "robot_curobo_yaml": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/spot/cumotion/spot_arm.yaml",
-        "robot_urdf": "/home/gonzales/Documents/repositories/isaaclab-hiveboard/source/isaaclab_hiveboard/isaaclab_hiveboard/assets/spot/spot_with_arm.urdf",
+        "robot_curobo_yaml": "spot/cumotion/spot_arm.yaml",
+        "robot_urdf": "spot/spot_with_arm.urdf",
         "num_ik_seeds": 4,
         "interpolation_buffer_size": 128,
         "plan_batch_size": 1,

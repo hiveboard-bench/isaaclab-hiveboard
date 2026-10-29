@@ -15,6 +15,8 @@ from isaaclab_hiveboard.tasks.scenes.threads import M8_SPEC
 
 def _use_franka_m8_thread(env_cfg) -> None:
     use_franka(env_cfg, "thread", "reset_object_root")
+    # Allow all regrasp cycles and the final retreat (~59 s at the nominal pose).
+    env_cfg.episode_length_s = 75.0
     shift_target_frames(env_cfg, SCREW_GRASP_FRAMES, M8_SPEC.franka_tip_x - M8_SPEC.grasp_x)
 
 

@@ -22,6 +22,8 @@ PUSH_DEPTH = 0.015
 
 def _use_franka_breaker(env_cfg) -> None:
     use_franka(env_cfg, "circuit_breaker", "reset_breaker_root")
+    # Include the grasp, actuation and retreat; the nominal floor run takes ~12 s.
+    env_cfg.episode_length_s = 20.0
     for frame in env_cfg.scene.target_frame.target_frames:
         if frame.name in ("lever_pivot_below", "lever_pivot_above"):
             x, y, z = frame.offset.pos
