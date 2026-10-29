@@ -23,8 +23,8 @@ Button: UUC conversion of the HiveBoard hidden-button URDF (lid hinge and
 button slide are already articulated upstream).
 Drawer / key: UUC conversion of the re-authored URDFs in ``hiveboard/drawer``
 and ``hiveboard/key`` (the upstream ones have no joints). The drawer is split
-into a kinematic housing and a free box; cuts and shafts stay URDF primitives,
-so there is no CoACD overlay: a hull of the slotted plate would fill the exit.
+into a kinematic housing and a free box. CAD-backed housing support, bin walls,
+cuts and shafts stay URDF primitives; a housing hull would fill the slot exit.
 The key is likewise split: the lock (housing + turning plug) is a fixed
 articulation, the key a free body that the robot carries welded to its hand.
 Threads / peg / shock absorber: UUC conversion of the re-authored URDFs in
@@ -123,8 +123,6 @@ DRAWER_HOUSING_OVERLAY = DRAWER_USD_DIR / "Drawer_Housing_uuc_newton.usda"
 DRAWER_BOX_OVERLAY = DRAWER_USD_DIR / "Drawer_Box_uuc_newton.usda"
 LOCK_URDF = EXT_ASSETS / "hiveboard/key/Lock_Assembly.urdf"
 LOCK_UUC_DIR = EXT_ASSETS / "hiveboard/key/usd/uuc_lock"
-KEY_URDF = EXT_ASSETS / "hiveboard/key/Key.urdf"
-KEY_UUC_DIR = EXT_ASSETS / "hiveboard/key/usd/uuc_key"
 
 # Threads, peg and shock absorber: re-authored URDFs (upstream welds the peg
 # and pin, and collides with base hulls that cone over the thread). The
@@ -553,10 +551,6 @@ def sync_drawer_collision() -> None:
                 link.remove(col)
     for shape in _drawer_source_primitives():
         links["base" if shape.attrib["name"].startswith("cut_") else "drawer"].append(shape)
-    drawer = links["drawer"]
-    left = next(s for s in drawer.findall("collision") if s.attrib["name"] == "shaft_left")
-    x, _, z = left.find("origin").attrib["xyz"].split()
-    drawer.find("inertial/origin").set("xyz", f"{x} 0 {z}")
     ET.indent(tree, space="  ")
     tree.write(DRAWER_URDF, encoding="utf-8", xml_declaration=True)
 
@@ -736,7 +730,6 @@ def render_sm_overlay() -> str:
 
 
 def apply_drawer_contact_materials(path: Path, body_name: str) -> None:
-    """Keep sliding guide friction separate from the handle's pad friction."""
     from pxr import Usd, UsdPhysics, UsdShade
 
     stage = Usd.Stage.Open(str(path))
@@ -753,7 +746,10 @@ def apply_drawer_contact_materials(path: Path, body_name: str) -> None:
     material.CreateRestitutionAttr(0.0)
     body = stage.GetPrimAtPath(root.AppendPath(f"Geometry/{body_name}"))
     for prim in body.GetChildren():
-        if prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Get() is not False:
+        if (
+            prim.HasAPI(UsdPhysics.CollisionAPI)
+            and UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Get() is not False
+        ):
             UsdShade.MaterialBindingAPI.Apply(prim).Bind(
                 pad if prim.GetName() == "face" else guide, materialPurpose="physics"
             )
@@ -861,7 +857,6 @@ def verify() -> list[str]:
     for label, overlay, default_prim in (
         ("drawer housing", DRAWER_HOUSING_OVERLAY, "Drawer_Housing"),
         ("drawer box", DRAWER_BOX_OVERLAY, "Drawer_Box"),
-        ("key", KEY_UUC_DIR / "Key.usda", "Key"),
     ):
         if not overlay.exists():
             problems.append(f"missing {label}: {overlay}")
@@ -1000,13 +995,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[UUC] drawer box: {DRAWER_BOX_UUC_DIR / 'Drawer_Box.usda'}")
         if want_key:
             run_uuc_conversion(LOCK_URDF, LOCK_UUC_DIR, args.uuc_python)
-            run_uuc_conversion(KEY_URDF, KEY_UUC_DIR, args.uuc_python)
-            # The robot spawn welds the key to its hand; UUC's world weld would fight that.
-            _strip_world_fixed_joint(KEY_UUC_DIR / "Payload" / "Physics.usda")
             _disable_visual_mesh_collision(LOCK_UUC_DIR / "Payload" / "Geometry.usda")
-            _disable_visual_mesh_collision(KEY_UUC_DIR / "Payload" / "Geometry.usda")
             print(f"[UUC] lock: {LOCK_UUC_DIR / 'Lock_Assembly.usda'}")
-            print(f"[UUC] key: {KEY_UUC_DIR / 'Key.usda'}")
         for label, urdf, out_dir in uuc_only:
             run_uuc_conversion(urdf, out_dir, args.uuc_python)
             print(f"[UUC] {label}: {out_dir / urdf.with_suffix('.usda').name}")
