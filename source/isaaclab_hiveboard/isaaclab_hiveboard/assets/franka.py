@@ -79,3 +79,45 @@ FRANKA_FR3_HIGH_PD_CFG.actuators["fr3_shoulder"].damping = 80.0
 FRANKA_FR3_HIGH_PD_CFG.actuators["fr3_forearm"].stiffness = 400.0
 FRANKA_FR3_HIGH_PD_CFG.actuators["fr3_forearm"].damping = 80.0
 """Franka Research 3 with stiffer PD gains for differential IK."""
+
+# Integrate the stiff drives in MJWarp's implicit solver. Explicit PD at the
+# 5 ms task timestep saturates the arm torques and makes the fingers oscillate
+# even under a constant open command.
+ARM_STIFFNESS = 2000.0
+ARM_DAMPING = 200.0
+FRANKA_NEWTON_ACTUATORS = {
+    "fr3_shoulder": ImplicitActuatorCfg(
+        joint_names_expr=["fr3_joint[1-4]"],
+        effort_limit_sim=87.0,
+        stiffness=ARM_STIFFNESS,
+        damping=ARM_DAMPING,
+        armature=0.1,
+    ),
+    "fr3_forearm": ImplicitActuatorCfg(
+        joint_names_expr=["fr3_joint[5-7]"],
+        effort_limit_sim=12.0,
+        stiffness=ARM_STIFFNESS,
+        damping=ARM_DAMPING,
+        armature=0.05,
+    ),
+    # Stiff enough to squeeze a handle: closing on a 1 cm part leaves a 5 mm
+    # position error per finger, which must still reach the FR3 hand's
+    # 70 N continuous grasp force. The damping caps the closing speed near
+    # the real hand's ~0.07 m/s so the jaws do not slam light handwheels.
+    # Both fingers stay driven: fr3.usd's finger mimic becomes a soft MuJoCo
+    # equality in Newton, and a passive follower on it swings past its limits.
+    "fr3_hand": ImplicitActuatorCfg(
+        joint_names_expr=["fr3_finger_joint.*"],
+        effort_limit_sim=70.0,
+        stiffness=2e4,
+        damping=1e3,
+        armature=0.01,
+    ),
+}
+
+FRANKA_NEWTON_CFG = FRANKA_FR3_HIGH_PD_CFG.replace(
+    prim_path="{ENV_REGEX_NS}/Robot",
+    spawn=FRANKA_FR3_HIGH_PD_CFG.spawn.replace(activate_contact_sensors=True),
+    actuators=FRANKA_NEWTON_ACTUATORS,
+)
+"""Table-mounted FR3 at the env origin, facing +X."""

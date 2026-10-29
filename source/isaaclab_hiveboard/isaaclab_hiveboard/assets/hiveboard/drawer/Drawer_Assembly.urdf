@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <robot name="Drawer_Assembly">
   <!-- Contact-only guide: no prismatic constraint. The side cuts and shafts
-       are recovered from the upstream primitive meshes by drawer_collision.py.
+       are recovered from the upstream primitive meshes by generate_newton_usd.py.
        The finite stop is about 25.6 mm from closed. Keep the housing mesh
        visual-only: a single convex hull would fill the slot. Drawer side
        walls are thin box proxies; the grasp tab retains its existing proxy. -->

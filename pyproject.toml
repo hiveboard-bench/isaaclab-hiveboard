@@ -113,7 +113,6 @@ include = ["isaaclab_hiveboard*"]
 
 [tool.setuptools.package-data]
 isaaclab_hiveboard = [
-    "tasks/**/*.json",
     "assets/**/*.mtl",
     "assets/**/*.obj",
     "assets/**/*.png",

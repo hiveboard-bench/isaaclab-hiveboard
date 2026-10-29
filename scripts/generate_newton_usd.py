@@ -491,6 +491,76 @@ def render_ht_overlay() -> str:
     )
 
 
+DRAWER_SOURCE_URDF = REPO_ROOT / "dependencies/HiveBoard/Simulation/Drawer/Drawer_Assembly.urdf"
+DRAWER_GUIDES = {
+    "left_Guide_Cube": "cut_left_ceiling",
+    "left_Guide_Cube_01": "cut_left_upper",
+    "left_Guide_Cube_02": "cut_left_floor",
+    "left_Guide_Cube_03": "cut_left_lip",
+    "left_Guide_Cube_04": "cut_left_rear",
+    "Cylinder": "cut_left_round",
+    "right_Guide_Cube": "cut_right_ceiling",
+    "right_Guide_Cube_01": "cut_right_upper",
+    "right_Guide_Cube_02": "cut_right_floor",
+    "right_Guide_Cube_03": "cut_right_lip",
+    "right_Guide_Cube_04": "cut_right_rear",
+    "right_Guide_Cylinder_01": "cut_right_round",
+    "tn__Gaveta1_aE_Corpo1_Cylinder_01": "shaft_left",
+    "Cylinder_02": "shaft_right",
+}
+
+
+def _drawer_source_primitives() -> list:
+    import xml.etree.ElementTree as ET
+
+    shapes = []
+    for item in ET.parse(DRAWER_SOURCE_URDF).getroot().iter("collision"):
+        path = DRAWER_SOURCE_URDF.parent / item.find("geometry/mesh").attrib["filename"]
+        name = DRAWER_GUIDES.get(path.stem)
+        if name is None:
+            continue
+        points = [
+            tuple(float(value) * 0.001 for value in line.split()[1:4])
+            for line in path.read_text().splitlines()
+            if line.startswith("v ")
+        ]
+        low = tuple(min(point[i] for point in points) for i in range(3))
+        high = tuple(max(point[i] for point in points) for i in range(3))
+        assert all(abs(a + b) / 2 <= 1e-7 for a, b in zip(low, high)), path
+        col = ET.Element("collision", name=name)
+        ET.SubElement(col, "origin", dict(item.find("origin").attrib))
+        geom = ET.SubElement(col, "geometry")
+        if "Cylinder" in path.stem:
+            radius = f"{(high[0] - low[0]) / 2:.10f}"
+            ET.SubElement(geom, "cylinder", radius=radius, length=f"{high[2] - low[2]:.10f}")
+        else:
+            size = " ".join(f"{b - a:.10f}" for a, b in zip(low, high))
+            ET.SubElement(geom, "box", size=size)
+        shapes.append(col)
+    assert len(shapes) == len(DRAWER_GUIDES)
+    return shapes
+
+
+def sync_drawer_collision() -> None:
+    import xml.etree.ElementTree as ET
+
+    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
+    tree = ET.parse(DRAWER_URDF, parser=parser)
+    links = {link.attrib["name"]: link for link in tree.getroot().findall("link")}
+    for link in links.values():
+        for col in list(link.findall("collision")):
+            if col.attrib.get("name", "").startswith(("cut_", "shaft_")):
+                link.remove(col)
+    for shape in _drawer_source_primitives():
+        links["base" if shape.attrib["name"].startswith("cut_") else "drawer"].append(shape)
+    drawer = links["drawer"]
+    left = next(s for s in drawer.findall("collision") if s.attrib["name"] == "shaft_left")
+    x, _, z = left.find("origin").attrib["xyz"].split()
+    drawer.find("inertial/origin").set("xyz", f"{x} 0 {z}")
+    ET.indent(tree, space="  ")
+    tree.write(DRAWER_URDF, encoding="utf-8", xml_declaration=True)
+
+
 def _split_drawer_urdfs(directory: Path) -> tuple[Path, Path]:
     """Write one-link URDFs so each Newton body is free of the other.
 
@@ -914,8 +984,6 @@ def main(argv: list[str] | None = None) -> int:
             run_uuc_conversion(BUTTON_URDF, BUTTON_UUC_DIR, args.uuc_python)
             print(f"[UUC] button: {BUTTON_UUC_DIR / 'Button_Assembly.usda'}")
         if want_drawer:
-            from drawer_collision import sync_drawer_collision
-
             sync_drawer_collision()
             housing_urdf, box_urdf = _split_drawer_urdfs(DRAWER_URDF.parent)
             try:
