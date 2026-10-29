@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<!--
+  Key: a single free link, carried by the robot (welded to its hand at spawn).
+
+  The link frame is the key's pose when fully inserted in Lock_Assembly.urdf
+  at RevoluteJoint = 0: shaft along +X, blade tip at x = -0.006. That is the
+  upstream key rolled +90 deg about its shaft, which lines its profile up
+  with the visual keyhole. Visual mesh is the upstream one.
+
+  Mesh extents in this frame: blade x in [-0.006, 0], y in [-0.0104, 0.0136],
+  z in [-0.0044, 0.0044], with a tab down to z = -0.0145 at its +Y end;
+  shaft radius 3.5 mm to x = 0.049; bow x in [0.048, 0.073],
+  y in [-0.011, 0.013], 7 mm thick in Z.
+
+  Collision is the blade (lengthened to x = 0.004 so more of it engages the
+  keyway) and the shaft. The tab is visual only, and so is the bow, which sits
+  between the gripper pads.
+-->
+<robot name="Key">
+  <link name="key">
+    <inertial><origin xyz="0.035 0 0" rpy="0 0 0" /><mass value="0.01" /><inertia ixx="2e-06" ixy="0" ixz="0" iyy="2e-06" iyz="0" izz="2e-06" /></inertial>
+    <visual>
+      <origin xyz="-0.005997 0.014136 0.004981" rpy="1.5707963 1.5707963 0." />
+      <geometry>
+        <mesh filename="../../../../../../dependencies/HiveBoard/Simulation/Key/meshes/Key_pivot_Corpo1_Mesh.obj" scale="0.001000 0.001000 0.001000" />
+      </geometry>
+    </visual>
+    <collision name="blade">
+      <origin xyz="-0.001 0.0016 0" rpy="0 0 0" />
+      <geometry><box size="0.010 0.024 0.0088" /></geometry>
+    </collision>
+    <collision name="shaft">
+      <origin xyz="0.0265 0 0" rpy="0 1.5707963 0" />
+      <geometry><cylinder radius="0.0035" length="0.045" /></geometry>
+    </collision>
+  </link>
+</robot>

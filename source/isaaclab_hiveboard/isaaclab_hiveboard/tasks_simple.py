@@ -29,6 +29,7 @@ from isaaclab_tasks.utils import PresetCfg
 
 from isaaclab_hiveboard import assets
 from isaaclab_hiveboard.assets.anymal.bench import ANYMAL_ARM_NEWTON_CFG
+from isaaclab_hiveboard.assets.glued_tool import GluedToolCfg, glue_tool, quat_mul, roll_about_x, tool_pose_in_link
 from isaaclab_hiveboard.assets.spot.spot import (
     SPOT_ARM_NEWTON_CFG,
     SPOT_ARM_UUC_BODY_PRIM,
@@ -93,6 +94,8 @@ class RobotCfg:
     gripper_close: dict = MISSING
     gripper_close_speed: float | None = None
     gripper_width_scale: float | None = None
+    tool_grasp_x: float = 0.068
+    tool_jaw_roll_deg: float = 0.0
 
 
 @configclass
@@ -126,6 +129,8 @@ class AssetCfg:
     grip_effort_scale: float = 1.0
     grip_width: float | None = None
     turn_step_deg: float = 90.0
+    turn_scale: float = 1.0
+    tool_usd: str | None = None
     method: str | None = None
     dynamics: dict = {}
     stuck_prob: float = 0.0
@@ -205,6 +210,7 @@ ROBOTS = {
         gripper_open={"finger_joint": 0.0},
         gripper_close={"finger_joint": 1.5},
         gripper_close_speed=2.0,
+        tool_jaw_roll_deg=90.0,
     ),
     "franka": RobotCfg(
         name="franka",
@@ -246,6 +252,8 @@ ROBOTS = {
         gripper_close={"fr3_finger_joint.*": 0.01},
         gripper_close_speed=0.05,
         gripper_width_scale=0.5,
+        tool_grasp_x=0.052,
+        tool_jaw_roll_deg=90.0,
     ),
     "spot": RobotCfg(
         name="spot",
@@ -680,7 +688,7 @@ ASSETS = {
         name="key",
         prim="Lock",
         usd=assets.LOCK_NEWTON_USD,
-        gravity=True,
+        tool_usd=assets.KEY_NEWTON_USD,
         rot=FACE,
         viewer={"body_name": "lock"},
         panel_pos=(-0.03, 0.0, 0.0),
@@ -689,26 +697,28 @@ ASSETS = {
                 "damping": 0.01,
                 "friction": 0.02,
                 "effort_limit_sim": 2.0,
+                # MJWarp contacts are mass-normalized: on the bare plug the blade
+                # sank into the keyway walls. Rotor inertia makes the walls hold.
                 "armature": 0.001,
             },
         },
         closed_end_stop=True,
         frame_path="Geometry/lock",
-        frame_rot=(0.0, 0.7071067811865475, 0.7071067811865476, 0.0),
+        frame_rot=FACE,
+        # Along the lock axis from the robot's grasp point on the key, which is
+        # inserted at x = 0: approach with the blade 7.4 cm off the face, then
+        # line it up 7 mm off and push it in.
         targets={
-            "approaching": {"pos": (0.155, 0.001, 0.0)},
-            "grasp": {
-                "path": "Lock/Geometry/lock/key",
-                "pos": (0.083, 0.001, 0.0),
-                "contact_pos": (0.0605, 0.001, 0.0),
-                "contact_length": 0.025,
-            },
+            "approaching": {"pos": (0.080, 0.0, 0.0)},
+            "entry": {"pos": (0.012, 0.0, 0.0)},
+            "inserted": {"pos": (0.0, 0.0, 0.0)},
             "rotate_frame": {"pos": (0.0, 0.0, 0.0), "rot": FACE},
         },
-        grasp_frame="grasp",
-        mode="contact_grasp",
-        grip_width=0.0,
-        method="lever_turn",
+        grasp_frame="inserted",
+        grip_width=0.007,
+        # The hand turns past the plug's 90 deg stop to take up the keyway's ~5 deg of backlash.
+        turn_scale=1.07,
+        method="insert_turn",
         dynamics={"friction": (0.005, 0.05)},
         robot_material={"static_friction_range": (0.8, 0.8), "dynamic_friction_range": (0.6, 0.6)},
         mechanism_material={
@@ -1292,9 +1302,16 @@ def build(cfg, robot_name, task_name):
         ),
     )
     frame_path = "{ENV_REGEX_NS}/" + asset.prim + "/" + asset.frame_path
+    # A glued tool's targets sit along the lock axis from the robot's grasp point,
+    # with the jaws rolled to the robot's grasp.
+    if asset.tool_usd is not None:
+        tool_rot = quat_mul(asset.frame_rot, roll_about_x(robot.tool_jaw_roll_deg))
     targets = []
     for frame, value in asset.targets.items():
         target_pos = value["pos"]
+        if asset.tool_usd is not None:
+            target_pos = (target_pos[0] + robot.tool_grasp_x, *target_pos[1:])
+            value = {"rot": tool_rot, **value}
         if "contact_pos" in value:
             center = torch.tensor(value["contact_pos"], dtype=torch.float64)
             delta = torch.tensor(target_pos, dtype=torch.float64) - center
@@ -1320,6 +1337,12 @@ def build(cfg, robot_name, task_name):
     for group, effort in robot.grip_effort.items():
         actuators[group] = actuators[group].replace(effort_limit=effort * asset.grip_effort_scale)
     robot.articulation = robot.articulation.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    if asset.tool_usd is not None:
+        pos, rot = tool_pose_in_link(robot.ee, ((robot.tool_grasp_x, 0.0, 0.0), tool_rot))
+        tool = GluedToolCfg(
+            usd_path=asset.tool_usd, body_name=robot.ee.body_name, prim_name="Tool", pos=pos, rot=rot
+        )
+        robot.articulation = glue_tool(robot.articulation, tool)
     scene.robot = robot.articulation.replace(actuators=actuators)
     scene.ee_frame = assets.make_ee_frame(robot.ee)
     for sensor, pad in zip(("finger_contact", "jaw_contact"), robot.pads):
@@ -1410,6 +1433,7 @@ def build(cfg, robot_name, task_name):
             "shape_regex": (
                 f"{robot.contact_shapes}|/{asset.prim}/"
                 + ("|/Manipuland/" if asset.manipuland_usd else "")
+                + ("|/Tool/" if asset.tool_usd else "")
             ),
         },
     )
@@ -1626,6 +1650,26 @@ def expert(cfg):
                 ),
             ]
         )
+    elif asset.method == "insert_turn":
+        # The tool is welded to the hand, so the gripper only closes on it for show.
+        # The key is not symmetric under a half turn, so nothing canonicalizes the TCP.
+        insert = {
+            "gripper_open": False,
+            "distance_threshold": 0.003,
+            "orientation_threshold_deg": 2.0,
+            "canonicalize_upward": False,
+            **goto,
+        }
+        commands = [
+            skills.grip(duration_s=max(0.4, minimum["grip"])),
+            skills.approach(
+                "approaching", gripper_open=False, distance_threshold=0.02, canonicalize_upward=False, **goto
+            ),
+            skills.engage("entry", velocity=0.1, **insert),
+            skills.engage(asset.grasp_frame, velocity=0.03, **insert),
+            skills.turn(angular_velocity=0.4, angle_threshold_deg=2.0, **planned),
+            skills.hold(phase="actuate", duration_s=max(0.5, minimum["hold"])),
+        ]
     elif asset.method == "wheel_turn":
         diversity.update(grasp_shift=(-0.005, 0.005), grasp_roll=(-0.12, 0.12))
         overshoot = (0.0, 0.05)
@@ -1787,6 +1831,7 @@ def expert(cfg):
         valve_joint_open=task.target,
         valve_joint_closed=task.start,
         valve_min_delta_rad=min(0.35, abs(task.target - task.start) / 2),
+        valve_ee_joint_angle_scale=asset.turn_scale,
         screw_coupling=screw_coupling(asset),
         commands=commands,
     )

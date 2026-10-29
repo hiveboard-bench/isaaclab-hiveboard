@@ -70,7 +70,11 @@ DRAWER_HOUSING_NEWTON_USD = os.path.join(
 DRAWER_BOX_NEWTON_USD = os.path.join(ASSET_DIR, "hiveboard", "drawer", "usd", "Drawer_Box_uuc_newton.usda")
 KEY_URDF = os.path.join(HIVEBOARD_SIM_DIR, "Key", "Key_assembly.urdf")
 KEY_USD = os.path.join(HIVEBOARD_SIM_DIR, "Key", "Key_assembly.usd")
+# The rigid upstream asset split in two and converted by UUC: the lock (fixed
+# housing + turning plug) and the free key the robot carries. See
+# hiveboard/key/{Lock_Assembly,Key}.urdf and scripts/generate_newton_usd.py.
 LOCK_NEWTON_USD = os.path.join(ASSET_DIR, "hiveboard", "key", "usd", "uuc_lock", "Lock_Assembly.usda")
+KEY_NEWTON_USD = os.path.join(ASSET_DIR, "hiveboard", "key", "usd", "uuc_key", "Key.usda")
 LAMP_URDF = os.path.join(HIVEBOARD_SIM_DIR, "Lamp", "Lamp_Assembly.urdf")
 LAMP_USD = os.path.join(HIVEBOARD_SIM_DIR, "Lamp", "Lamp_Assembly.usd")
 LAMP_NEWTON_USD = os.path.join(ASSET_DIR, "hiveboard", "lamp", "usd", "uuc", "Lamp_Assembly.usda")

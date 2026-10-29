@@ -1,4 +1,24 @@
 <?xml version="1.0"?>
+<!--
+  Lock: a fixed housing plus a plug that turns on a revolute joint about +X.
+  The key is a separate body (Key.urdf) that the robot carries in.
+
+  The upstream Key_assembly.urdf (dependencies/HiveBoard) is one rigid link
+  with the key already in the lock. Visual meshes are the upstream ones.
+  Collision is boxes so Newton can hold the key in a keyway:
+
+  * Housing: x in [-0.010, 0.005], 76 x 73 mm, with a 47 mm square hole on
+    the plug axis.
+  * Plug: a keyway open toward +X and closed at x = -0.0065 by a back stop.
+    The slot is y in [-0.0116, 0.0148], z in [-0.0056, 0.0056]: the key blade
+    (Key.urdf) plus 1.2 mm per side. Its walls reach a radius of 21.8 mm, so
+    the plug turns inside the housing hole with 1.7 mm to spare.
+
+  At RevoluteJoint = 0 the slot lies along the visual keyhole (25 x 10 mm,
+  y in [-0.0125, 0.0125], z in [-0.005, 0.005]). Turning the inserted key
+  drives the slot walls, after about 5 deg of backlash. The joint stops at
+  90 deg.
+-->
 <robot name="Lock_Assembly">
   <link name="lock">
     <inertial><origin xyz="0 0 0" rpy="0 0 0" /><mass value="0.08" /><inertia ixx="1e-05" ixy="0" ixz="0" iyy="1e-05" iyz="0" izz="1e-05" /></inertial>
@@ -8,6 +28,7 @@
         <mesh filename="../../../../../../dependencies/HiveBoard/Simulation/Key/meshes/Key_Base_pivot_Corpo1_Mesh.obj" scale="0.001000 0.001000 0.001000" />
       </geometry>
     </visual>
+    <!-- Housing frame around the plug. Boxes are centered; sizes are full edge lengths. -->
     <collision name="housing_left">
       <origin xyz="-0.0025 -0.03075 0" rpy="0 0 0" />
       <geometry><box size="0.015 0.0145 0.073" /></geometry>
@@ -25,41 +46,36 @@
       <geometry><box size="0.015 0.047 0.013" /></geometry>
     </collision>
   </link>
-  <link name="key">
-    <inertial>
-      <origin xyz="0.03445106 0.00126317 -0.00042055" rpy="0 0 0" />
-      <mass value="0.01" />
-      <inertia ixx="5.15713e-07" ixy="1.54484e-07" ixz="-1.52377e-07"
-        iyy="7.82442e-06" iyz="3.96430e-08" izz="8.17870e-06" />
-    </inertial>
-    <visual>
-      <origin xyz="-0.005997 0.014136 0.004981" rpy="1.5707963 1.5707963 0" />
-      <geometry>
-        <mesh filename="../../../../../../dependencies/HiveBoard/Simulation/Key/meshes/Key_pivot_Corpo1_Mesh.obj" scale="0.001000 0.001000 0.001000" />
-      </geometry>
-    </visual>
-    <collision name="blade">
-      <origin xyz="-0.002997 0.001636 -0.000019" rpy="0 0 0" />
-      <geometry><box size="0.006 0.024 0.009" /></geometry>
+  <link name="plug">
+    <inertial><origin xyz="0 0 0" rpy="0 0 0" /><mass value="0.02" /><inertia ixx="2e-06" ixy="0" ixz="0" iyy="2e-06" iyz="0" izz="2e-06" /></inertial>
+    <!-- Keyway walls, x in [-0.0065, 0.005]. -->
+    <collision name="keyway_top">
+      <origin xyz="-0.00075 0.0016 0.0083" rpy="0 0 0" />
+      <geometry><box size="0.0115 0.0344 0.0054" /></geometry>
     </collision>
-    <collision name="blade_tab">
-      <origin xyz="-0.002997 0.011136 -0.009519" rpy="0 0 0" />
-      <geometry><box size="0.006 0.005 0.010" /></geometry>
+    <collision name="keyway_bottom">
+      <origin xyz="-0.00075 0.0016 -0.0083" rpy="0 0 0" />
+      <geometry><box size="0.0115 0.0344 0.0054" /></geometry>
     </collision>
-    <collision name="shaft">
-      <origin xyz="0.024003 -0.000052 -0.000019" rpy="0 1.5707963 0" />
-      <geometry><cylinder radius="0.0035" length="0.048" /></geometry>
+    <collision name="keyway_left">
+      <origin xyz="-0.00075 -0.0136 0" rpy="0 0 0" />
+      <geometry><box size="0.0115 0.004 0.0112" /></geometry>
     </collision>
-    <collision name="bow">
-      <origin xyz="0.0605 0.001 0" rpy="0 0 0" />
-      <geometry><box size="0.025 0.024 0.007" /></geometry>
+    <collision name="keyway_right">
+      <origin xyz="-0.00075 0.0168 0" rpy="0 0 0" />
+      <geometry><box size="0.0115 0.004 0.0112" /></geometry>
+    </collision>
+    <!-- Back stop, x in [-0.010, -0.0065]: the blade tip (x = -0.006) is 0.5 mm short of it when fully inserted. -->
+    <collision name="keyway_back">
+      <origin xyz="-0.00825 0.0016 0" rpy="0 0 0" />
+      <geometry><box size="0.0035 0.0344 0.022" /></geometry>
     </collision>
   </link>
   <joint name="RevoluteJoint" type="revolute">
     <origin xyz="0 0 0" rpy="0 0 0" />
     <parent link="lock" />
-    <child link="key" />
+    <child link="plug" />
     <axis xyz="1 0 0" />
-    <limit lower="0.0" upper="1.5707963267948966" effort="100.0" velocity="10.0" />
+    <limit lower="0.0" upper="1.5707963" effort="100.0" velocity="10.0" />
   </joint>
 </robot>

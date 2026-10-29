@@ -123,6 +123,8 @@ DRAWER_HOUSING_OVERLAY = DRAWER_USD_DIR / "Drawer_Housing_uuc_newton.usda"
 DRAWER_BOX_OVERLAY = DRAWER_USD_DIR / "Drawer_Box_uuc_newton.usda"
 LOCK_URDF = EXT_ASSETS / "hiveboard/key/Lock_Assembly.urdf"
 LOCK_UUC_DIR = EXT_ASSETS / "hiveboard/key/usd/uuc_lock"
+KEY_URDF = EXT_ASSETS / "hiveboard/key/Key.urdf"
+KEY_UUC_DIR = EXT_ASSETS / "hiveboard/key/usd/uuc_key"
 
 # Threads, peg and shock absorber: re-authored URDFs (upstream welds the peg
 # and pin, and collides with base hulls that cone over the thread). The
@@ -857,6 +859,7 @@ def verify() -> list[str]:
     for label, overlay, default_prim in (
         ("drawer housing", DRAWER_HOUSING_OVERLAY, "Drawer_Housing"),
         ("drawer box", DRAWER_BOX_OVERLAY, "Drawer_Box"),
+        ("key", KEY_UUC_DIR / "Key.usda", "Key"),
     ):
         if not overlay.exists():
             problems.append(f"missing {label}: {overlay}")
@@ -995,8 +998,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[UUC] drawer box: {DRAWER_BOX_UUC_DIR / 'Drawer_Box.usda'}")
         if want_key:
             run_uuc_conversion(LOCK_URDF, LOCK_UUC_DIR, args.uuc_python)
+            run_uuc_conversion(KEY_URDF, KEY_UUC_DIR, args.uuc_python)
+            # The robot spawn welds the key to its hand; UUC's world weld would fight that.
+            _strip_world_fixed_joint(KEY_UUC_DIR / "Payload" / "Physics.usda")
             _disable_visual_mesh_collision(LOCK_UUC_DIR / "Payload" / "Geometry.usda")
+            _disable_visual_mesh_collision(KEY_UUC_DIR / "Payload" / "Geometry.usda")
             print(f"[UUC] lock: {LOCK_UUC_DIR / 'Lock_Assembly.usda'}")
+            print(f"[UUC] key: {KEY_UUC_DIR / 'Key.usda'}")
         for label, urdf, out_dir in uuc_only:
             run_uuc_conversion(urdf, out_dir, args.uuc_python)
             print(f"[UUC] {label}: {out_dir / urdf.with_suffix('.usda').name}")
